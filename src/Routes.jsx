@@ -43,6 +43,7 @@ import AutonomousAiHedgeFundLevel from './pages/autonomous-ai-hedge-fund-level';
 import DataminingInRocketTradingMvp from './pages/datamining-in-rocket-trading-mvp';
 import MonitoringControlCenter from './pages/monitoring-control-center';
 import VisionUltimeLivingHedgeFund from './pages/vision-ultime-the-living-hedge-fund';
+import RocketNewCICDPipelineConfiguration from "pages/rocket-new-ci-cd-pipeline-configuration";
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -54,6 +55,7 @@ import SupabaseHardeningExpressPlan from './pages/supabase-hardening-express-pla
 import CiCdFlutterOptimizedPipeline from './pages/ci-cd-flutter-optimized-pipeline';
 import CiCdFlutterOptimizedOverview from './pages/ci-cd-flutter-optimized-overview';
 import GitSecurityCleanupDocumentation from './pages/git-security-cleanup-documentation';
+import FlutterConfigurationSecurityGuide from './pages/flutter-configuration-security-guide';
 
 // 404 page
 import NotFound from './pages/NotFound';
@@ -96,6 +98,7 @@ const Routes = () => {
           <Route path="/ci-cd-flutter-optimized-pipeline" element={<CiCdFlutterOptimizedPipeline />} />
           <Route path="/ci-cd-flutter-optimized-overview" element={<CiCdFlutterOptimizedOverview />} />
           <Route path="/git-security-cleanup-documentation" element={<GitSecurityCleanupDocumentation />} />
+          <Route path="/flutter-configuration-security-guide" element={<FlutterConfigurationSecurityGuide />} />
 
           {/* Data & Pipeline Management */}
           <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />
@@ -125,6 +128,7 @@ const Routes = () => {
           <Route path="/env-security-reference" element={<EnvSecurityReference />} />
           <Route path="/sos-api-diagnostic-center" element={<SosApiDiagnosticCenter />} />
           <Route path="/auto-diagnostic-auto-fix-rocket" element={<AutoDiagnosticAutoFixRocket />} />
+          <Route path="/rocket-new-ci-cd-pipeline-configuration" element={<RocketNewCICDPipelineConfiguration />} />
 
           {/* Authentication */}
           <Route path="/auth/login" element={<Login />} />
