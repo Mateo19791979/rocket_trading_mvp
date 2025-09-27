@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, ArrowRight, Brain, TrendingUp, Zap, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import BalanceCard from './components/BalanceCard';
 import SystemHealthCard from './components/SystemHealthCard';
 import WatchlistCard from './components/WatchlistCard';
@@ -13,9 +14,12 @@ import IBKRConfigModal from '../../components/ui/IBKRConfigModal';
 import { systemHealthService } from '../../services/systemHealthService';
 import { marketDataService } from '../../services/marketDataService';
 import { ibkrService } from '../../services/ibkrService';
+import Icon from '../../components/AppIcon';
+
 
 const DashboardPage = () => {
   const { user, userProfile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [systemHealth, setSystemHealth] = useState(null);
   const [marketData, setMarketData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +28,42 @@ const DashboardPage = () => {
 
   // Default symbols for dashboard
   const defaultSymbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA'];
+
+  // Advanced Features Navigation
+  const advancedFeatures = [
+    {
+      id: 'research-innovation',
+      title: 'Recherche & Innovation',
+      description: 'Des IA qui inventent de nouvelles stratégies',
+      icon: Brain,
+      path: '/research-innovation-center',
+      color: 'from-blue-500 to-cyan-500',
+    },
+    {
+      id: 'monitoring-control',
+      title: 'Monitoring & Contrôle',
+      description: 'Niveau Hedge Fund — supervision Rocket',
+      icon: TrendingUp,
+      path: '/monitoring-control-center',
+      color: 'from-teal-500 to-green-500',
+    },
+    {
+      id: 'ia-autonomes',
+      title: 'IA Autonomes',
+      description: 'Niveau Hedge Fund Autonome',
+      icon: Zap,
+      path: '/autonomous-ai-hedge-fund-level',
+      color: 'from-orange-500 to-red-500',
+    },
+    {
+      id: 'vision-ultime',
+      title: 'Vision Ultime',
+      description: 'The Living Hedge Fund — Un organisme financier vivant',
+      icon: Eye,
+      path: '/vision-ultime-the-living-hedge-fund',
+      color: 'from-purple-500 to-pink-500',
+    },
+  ];
 
   const loadDashboardData = async () => {
     try {
@@ -62,6 +102,10 @@ const DashboardPage = () => {
     setIBKRConnection(connection);
     // Refresh dashboard data to update IBKR status
     loadDashboardData();
+  };
+
+  const handleFeatureNavigation = (path) => {
+    navigate(path);
   };
 
   useEffect(() => {
@@ -145,8 +189,67 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
+        {/* Advanced Features Quick Access */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground font-heading">
+                Fonctionnalités Avancées
+              </h2>
+              <p className="text-muted-foreground font-body">
+                Accédez aux modules avancés de votre plateforme de trading IA
+              </p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {advancedFeatures?.map((feature) => {
+              const Icon = feature?.icon;
+              return (
+                <div
+                  key={feature?.id}
+                  onClick={() => handleFeatureNavigation(feature?.path)}
+                  className="group bg-card border border-border rounded-2xl p-6 shadow-trading hover:shadow-xl 
+                            transition-all duration-300 cursor-pointer hover:border-primary/50 
+                            hover:scale-105 relative overflow-hidden"
+                >
+                  {/* Gradient Background */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${feature?.color} opacity-5 
+                                  group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`p-3 rounded-xl bg-gradient-to-br ${feature?.color} shadow-lg`}>
+                        <Icon size={24} className="text-white" />
+                      </div>
+                      <ArrowRight 
+                        size={20} 
+                        className="text-muted-foreground group-hover:text-primary transition-colors duration-300" 
+                      />
+                    </div>
+                    
+                    <h3 className="text-lg font-semibold text-foreground font-heading mb-2 
+                                   group-hover:text-primary transition-colors duration-300">
+                      {feature?.title}
+                    </h3>
+                    
+                    <p className="text-sm text-muted-foreground font-body line-clamp-2">
+                      {feature?.description}
+                    </p>
+                  </div>
+                  
+                  {/* Hover Effect Border */}
+                  <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary/20 rounded-2xl transition-all duration-300"></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column - Main Cards */}
           <div className="lg:col-span-8 space-y-6">

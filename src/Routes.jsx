@@ -42,12 +42,14 @@ import RegistryDualStreamsVsFusion from './pages/registry-dual-streams-vs-fusion
 import AutonomousAiHedgeFundLevel from './pages/autonomous-ai-hedge-fund-level';
 import DataminingInRocketTradingMvp from './pages/datamining-in-rocket-trading-mvp';
 import MonitoringControlCenter from './pages/monitoring-control-center';
+import VisionUltimeLivingHedgeFund from './pages/vision-ultime-the-living-hedge-fund';
 
 // Auth pages
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResearchInnovationCenter from './pages/research-innovation-center';
+import AIChiefsChatInterface from './pages/ai-chiefs-chat-interface';
 
 // 404 page
 import NotFound from './pages/NotFound';
@@ -80,6 +82,8 @@ const Routes = () => {
           <Route path="/risk-controller-dashboard" element={<RiskControllerDashboard />} />
           <Route path="/autonomous-ai-hedge-fund-level" element={<AutonomousAiHedgeFundLevel />} />
           <Route path="/research-innovation-center" element={<ResearchInnovationCenter />} />
+          <Route path="/vision-ultime-the-living-hedge-fund" element={<VisionUltimeLivingHedgeFund />} />
+          <Route path="/ai-chiefs-chat-interface" element={<AIChiefsChatInterface />} />
 
           {/* Data & Pipeline Management */}
           <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />
