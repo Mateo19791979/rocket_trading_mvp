@@ -50,6 +50,7 @@ import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResearchInnovationCenter from './pages/research-innovation-center';
 import AIChiefsChatInterface from './pages/ai-chiefs-chat-interface';
+import SupabaseHardeningExpressPlan from './pages/supabase-hardening-express-plan';
 
 // 404 page
 import NotFound from './pages/NotFound';
@@ -84,6 +85,9 @@ const Routes = () => {
           <Route path="/research-innovation-center" element={<ResearchInnovationCenter />} />
           <Route path="/vision-ultime-the-living-hedge-fund" element={<VisionUltimeLivingHedgeFund />} />
           <Route path="/ai-chiefs-chat-interface" element={<AIChiefsChatInterface />} />
+
+          {/* Security & Hardening */}
+          <Route path="/supabase-hardening-express-plan" element={<SupabaseHardeningExpressPlan />} />
 
           {/* Data & Pipeline Management */}
           <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />

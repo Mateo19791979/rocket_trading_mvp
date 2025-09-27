@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Loader, MessageCircle, User, Bot, AlertCircle, Minimize2, Maximize2, Archive, MoreVertical, Copy } from 'lucide-react';
+import { X, Send, Loader, MessageCircle, User, Bot, AlertCircle, Minimize2, Maximize2, Archive, MoreVertical, Copy, LogIn } from 'lucide-react';
 import { aiChiefsChatService } from '../../../services/aiChiefsChatService';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const ChatInterfacePanel = ({ chiefRole, onClose }) => {
+  const { user, loading: authLoading, signInAsDemo } = useAuth();
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -10,6 +12,7 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [error, setError] = useState(null);
+  const [attemptingLogin, setAttemptingLogin] = useState(false);
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -22,8 +25,10 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
   };
 
   useEffect(() => {
-    if (chiefRole) {
+    if (user && chiefRole) {
       initializeChat();
+    } else if (!authLoading && !user) {
+      setLoading(false);
     }
 
     return () => {
@@ -32,7 +37,7 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
         aiChiefsChatService?.unsubscribeFromMessages(subscriptionRef?.current);
       }
     };
-  }, [chiefRole]);
+  }, [user, chiefRole, authLoading]);
 
   useEffect(() => {
     scrollToBottom();
@@ -43,12 +48,17 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
       setLoading(true);
       setError(null);
 
-      // For demo purposes, we'll simulate getting user ID
-      // In real implementation, get from auth context
-      const mockUserId = '145d705c-d690-4aa6-9716-6c4ce8981ffe';
+      if (!user?.id) {
+        setError('Session utilisateur invalide');
+        return;
+      }
       
       // Try to get existing conversations first
-      const { data: conversations } = await aiChiefsChatService?.getConversations(mockUserId);
+      const { data: conversations, error: convError } = await aiChiefsChatService?.getConversations(user?.id);
+      if (convError) {
+        throw new Error(`Erreur lors de la récupération des conversations: ${convError}`);
+      }
+
       let activeConversation = conversations?.find(
         conv => conv?.chief_role === chiefRole && conv?.status === 'active'
       );
@@ -56,11 +66,13 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
       // Create new conversation if none exists
       if (!activeConversation) {
         const { data: newConv, error: createError } = await aiChiefsChatService?.createConversation(
-          mockUserId, 
+          user?.id, 
           chiefRole
         );
         
-        if (createError) throw new Error(createError);
+        if (createError) {
+          throw new Error(`Erreur lors de la création de la conversation: ${createError}`);
+        }
         activeConversation = newConv;
       }
 
@@ -69,9 +81,13 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
       // Load messages
       if (activeConversation) {
         const { data: msgData, error: msgError } = await aiChiefsChatService?.getMessages(activeConversation?.id);
-        if (msgError) throw new Error(msgError);
-        
-        setMessages(msgData || []);
+        if (msgError) {
+          console.warn('Error loading messages:', msgError);
+          // Don't throw error for message loading, just log it
+          setMessages([]);
+        } else {
+          setMessages(msgData || []);
+        }
 
         // Subscribe to real-time updates
         subscriptionRef.current = aiChiefsChatService?.subscribeToMessages(
@@ -82,9 +98,27 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
 
     } catch (err) {
       console.error('Error initializing chat:', err);
-      setError(err?.message);
+      setError(err?.message || 'Erreur lors de l\'initialisation du chat');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    try {
+      setAttemptingLogin(true);
+      setError(null);
+      
+      const result = await signInAsDemo();
+      if (result?.error) {
+        setError('Erreur de connexion: ' + result?.error);
+      }
+      // The useEffect will detect the user change and initialize chat
+    } catch (err) {
+      console.error('Demo login error:', err);
+      setError('Erreur lors de la connexion démo');
+    } finally {
+      setAttemptingLogin(false);
     }
   };
 
@@ -152,12 +186,55 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
 
   const chiefInfo = getChiefInfo();
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="bg-gray-800 bg-opacity-95 backdrop-blur-sm rounded-lg p-6">
         <div className="flex items-center justify-center py-8">
           <Loader className="w-6 h-6 animate-spin text-teal-400 mr-2" />
-          <span className="text-gray-300">Initialisation de la conversation...</span>
+          <span className="text-gray-300">
+            {authLoading ? 'Vérification de l\'authentification...' : 'Initialisation de la conversation...'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="bg-gray-800 bg-opacity-95 backdrop-blur-sm rounded-lg p-6">
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">Authentification requise</h3>
+          <p className="text-gray-300 mb-4">
+            Connectez-vous pour utiliser le chat avec les chefs IA
+          </p>
+          {error && (
+            <div className="mt-4 p-3 bg-red-900 bg-opacity-30 border border-red-400 rounded-lg">
+              <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
+          <div className="flex justify-center space-x-3 mt-6">
+            <button
+              onClick={handleDemoLogin}
+              disabled={attemptingLogin}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center space-x-2"
+            >
+              {attemptingLogin ? (
+                <Loader className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogIn className="w-4 h-4" />
+              )}
+              <span>
+                {attemptingLogin ? 'Connexion...' : 'Connexion Démo'}
+              </span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     );

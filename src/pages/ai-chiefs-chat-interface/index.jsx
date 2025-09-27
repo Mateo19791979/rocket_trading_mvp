@@ -1,150 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Calendar } from 'lucide-react';
-import { aiChiefsChatService } from '../../services/aiChiefsChatService';
-
-// Components
+import React, { useState } from 'react';
+import { Shield, Activity, Rocket, LogIn } from 'lucide-react';
 import ChiefPersonasPanel from './components/ChiefPersonasPanel';
 import AuthorizedToolsPanel from './components/AuthorizedToolsPanel';
 import SecurityLoggingPanel from './components/SecurityLoggingPanel';
 import DeploymentPanel from './components/DeploymentPanel';
 import ChatInterfacePanel from './components/ChatInterfacePanel';
+import { useAuth } from '../../contexts/AuthContext';
 
-const AIChiefsChatInterface = () => {
-  const [selectedChief, setSelectedChief] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [loading, setLoading] = useState(true);
-  const [availableTools, setAvailableTools] = useState([]);
-  
-  useEffect(() => {
-    // Update date every minute
-    const interval = setInterval(() => {
-      setCurrentDate(new Date());
-    }, 60000);
+const AiChiefsChatInterface = () => {
+  const [activeChat, setActiveChat] = useState(null);
+  const { user, signInAsDemo, loading: authLoading } = useAuth();
 
-    loadInitialData();
+  const handleStartChat = (chiefRole) => {
+    setActiveChat(chiefRole);
+  };
 
-    return () => clearInterval(interval);
-  }, []);
+  const handleCloseChat = () => {
+    setActiveChat(null);
+  };
 
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load available tools
-      const { data: tools, error } = await aiChiefsChatService?.getAvailableTools();
-      if (!error && tools) {
-        setAvailableTools(tools);
-      }
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
+  const handleDemoLogin = async () => {
+    const { error } = await signInAsDemo();
+    if (error) {
+      console.error('Demo login failed:', error);
+      // Handle error - could show a toast or error message
     }
   };
 
-  const handleChiefSelection = (chiefRole) => {
-    setSelectedChief(chiefRole);
-  };
-
-  const formatDate = (date) => {
-    return date?.toLocaleDateString('fr-FR', { 
-      day: '2-digit',
-      month: 'short', 
-      year: 'numeric'
-    }) || '';
-  };
-
-  const formatTime = (date) => {
-    return date?.toLocaleTimeString('fr-FR', { 
-      hour: '2-digit', 
-      minute: '2-digit'
-    }) || '';
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-white text-lg">Chargement de l'interface des Chefs d'IA...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-800">
       {/* Header */}
-      <div className="relative px-8 py-6">
-        {/* Background image overlay */}
-        <div className="absolute inset-0 bg-black bg-opacity-20 rounded-lg"></div>
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-10 rounded-lg"
-          style={{
-            backgroundImage: 'url(/assets/images/Plaquette_Chat_Chefs_IA-1759006667997.jpg)'
-          }}
-        ></div>
-        
-        {/* Content */}
-        <div className="relative z-10">
-          {/* Date and time in top right */}
-          <div className="absolute top-0 right-0 flex items-center space-x-4 text-sm text-blue-200">
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-4 h-4" />
-              <span>{formatDate(currentDate)}</span>
+      <div className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Chat Chefs d'IA
+              </h1>
+              <p className="text-lg text-gray-300">
+                Parler à l'Orchestrateur, au Risque, à la Recherche, à l'Exécution et aux Données
+              </p>
+              <div className="text-sm text-gray-400 mt-1">
+                {new Date()?.toLocaleDateString('fr-FR', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
             </div>
-            <div className="flex items-center space-x-1">
-              <Clock className="w-4 h-4" />
-              <span>{formatTime(currentDate)}</span>
+            
+            {/* Authentication Status */}
+            <div className="flex items-center space-x-4">
+              {authLoading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-400"></div>
+                  <span className="text-gray-300 text-sm">Chargement...</span>
+                </div>
+              ) : user ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-green-300 text-sm">
+                    Connecté: {user?.user_metadata?.full_name || user?.email}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleDemoLogin}
+                  className="flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Demo Login</span>
+                </button>
+              )}
             </div>
-          </div>
-
-          {/* Title and subtitle */}
-          <div className="mb-4">
-            <h1 className="text-4xl font-bold text-white mb-2">
-              Chat Chefs d'IA
-            </h1>
-            <p className="text-xl text-blue-100">
-              Parler à l'Orchestrateur, au Risque, à la Recherche, à l'Exécution et aux Données
-            </p>
           </div>
         </div>
       </div>
-
-      {/* Main Content - Two Column Layout */}
-      <div className="px-8 pb-8">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Left Column */}
-          <div className="space-y-6">
-            {/* AI Chief Personas */}
+          <div className="space-y-8">
             <ChiefPersonasPanel 
-              onChiefSelect={handleChiefSelection}
-              selectedChief={selectedChief}
+              onStartChat={handleStartChat}
+              onChiefSelect={handleStartChat}
+              selectedChief={activeChat}
             />
-            
-            {/* Authorized Tools */}
-            <AuthorizedToolsPanel tools={availableTools} />
+            <AuthorizedToolsPanel />
           </div>
 
           {/* Right Column */}
-          <div className="space-y-6">
-            {/* Security & Logging */}
+          <div className="space-y-8">
             <SecurityLoggingPanel />
-            
-            {/* Deployment */}
             <DeploymentPanel />
           </div>
         </div>
 
-        {/* Chat Interface (Full Width when active) */}
-        {selectedChief && (
-          <div className="mt-8">
-            <ChatInterfacePanel 
-              chiefRole={selectedChief}
-              onClose={() => setSelectedChief(null)}
-            />
+        {/* Chat Interface Overlay */}
+        {activeChat && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+              <ChatInterfacePanel
+                chiefRole={activeChat}
+                onClose={handleCloseChat}
+              />
+            </div>
           </div>
         )}
+
+        {/* Status Bar */}
+        <div className="mt-8 bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-4">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <span className="text-gray-300">Système opérationnel</span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Activity className="w-4 h-4 text-teal-400" />
+                <span className="text-gray-300">5 chefs disponibles</span>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-blue-400" />
+                <span className="text-gray-300">Mode sécurisé</span>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Rocket className="w-4 h-4 text-orange-400" />
+              <span className="text-gray-300">Trading MVP v2.1.0</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default AIChiefsChatInterface;
+export default AiChiefsChatInterface;
