@@ -12,10 +12,10 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
     {
       id: 'sql_script',
       step: 1,
-      title: 'Appliquer script SQL',
-      description: 'supabase_fix_search_path.sql',
+      title: 'Appliquer script SQL (supabase_fix_search_path.sql)',
+      description: 'Configuration sécurisée des fonctions search_path PostgreSQL',
       icon: Database,
-      color: 'blue',
+      color: 'green',
       status: 'completed',
       duration: '2 min',
       action: 'apply_sql_script'
@@ -24,44 +24,44 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
       id: 'leaked_password',
       step: 2,
       title: 'Activer leaked password check',
-      description: 'Configuration Dashboard Auth',
+      description: 'Protection contre les mots de passe compromis dans Auth Dashboard',
       icon: Shield,
-      color: 'orange',
+      color: 'green',
       status: 'pending',
-      duration: '3 min',
+      duration: '1 min',
       action: 'enable_password_protection'
     },
     {
       id: 'mfa_setup',
       step: 3,
       title: 'Activer MFA multi-méthodes',
-      description: 'TOTP + WebAuthn pour rôles sensibles',
+      description: 'TOTP + WebAuthn obligatoire pour admins/staff',
       icon: Shield,
-      color: 'purple',
+      color: 'green',
       status: 'pending',
-      duration: '5 min',
+      duration: '3 min',
       action: 'setup_multi_mfa'
     },
     {
       id: 'postgres_upgrade',
       step: 4,
-      title: 'Upgrade Postgres',
-      description: 'Fenêtre maintenance programmée',
+      title: 'Upgrade Postgres (fenêtre maintenance)',
+      description: 'Patch de sécurité mineur avec fenêtre de maintenance',
       icon: Settings,
       color: 'green',
       status: 'pending',
-      duration: '4 min',
+      duration: '5 min',
       action: 'schedule_postgres_upgrade'
     },
     {
       id: 'final_checklist',
       step: 5,
-      title: 'Checklist finale',
-      description: 'RLS / Index / Policies / Logs',
+      title: 'Vérifier checklist RLS / Index / Policies / Logs',
+      description: 'Validation complète de la configuration de sécurité',
       icon: CheckCircle,
-      color: 'teal',
+      color: 'green',
       status: 'pending',
-      duration: '1 min',
+      duration: '4 min',
       action: 'final_validation'
     }
   ];
@@ -127,11 +127,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6"
-    >
+    <div className="h-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-green-500/20 rounded-lg">
@@ -179,7 +175,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
         </div>
       </div>
       {/* Progress Overview */}
-      <div className="mb-6 p-4 bg-slate-700/20 rounded-xl">
+      <div className="mb-6 p-4 bg-slate-800/20 rounded-xl border border-green-500/20">
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="text-slate-400">Progression globale du plan d'action</span>
           <span className="text-white font-medium">
@@ -209,7 +205,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
               className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-200 ${
                 status === 'completed' 
                   ? 'bg-green-500/10 border-green-500/30' 
-                  : status === 'current'|| isExecuting ?'bg-orange-500/10 border-orange-500/30' :'bg-slate-700/30 border-slate-600/50'
+                  : status === 'current' || isExecuting ? 'bg-orange-500/10 border-orange-500/30' : 'bg-slate-800/40 border-green-500/20'
               }`}
             >
               {/* Step Number & Icon */}
@@ -217,13 +213,13 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   status === 'completed' 
                     ? 'bg-green-500 text-white' 
-                    : status === 'current'|| isExecuting ?'bg-orange-500 text-white' :'bg-slate-600 text-slate-300'
+                    : status === 'current' || isExecuting ? 'bg-orange-500 text-white' : 'bg-slate-600 text-slate-300'
                 }`}>
                   {step?.step}
                 </div>
                 
-                <div className={`p-2 bg-${step?.color}-500/20 rounded-lg`}>
-                  <Icon className={`w-5 h-5 text-${step?.color}-400`} />
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <Icon className="w-5 h-5 text-green-400" />
                 </div>
               </div>
               {/* Step Content */}
@@ -244,7 +240,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
                 {status !== 'completed' && !isExecuting && (
                   <button
                     onClick={() => executeStep(step)}
-                    className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-all duration-200"
+                    className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-lg text-sm font-medium transition-all duration-200"
                   >
                     Exécuter
                   </button>
@@ -252,7 +248,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
               </div>
               {/* Progress Line */}
               <div className={`absolute left-4 top-14 w-0.5 h-6 ${
-                index < actionSteps?.length - 1 ? 'bg-slate-600' : 'bg-transparent'
+                index < actionSteps?.length - 1 ? 'bg-green-500/30' : 'bg-transparent'
               }`} />
             </motion.div>
           );
@@ -276,7 +272,7 @@ const RocketActionPlanPanel = ({ data, onExecuteAction, executingActions, onRefr
           </div>
         </motion.div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

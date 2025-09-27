@@ -51,6 +51,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResearchInnovationCenter from './pages/research-innovation-center';
 import AIChiefsChatInterface from './pages/ai-chiefs-chat-interface';
 import SupabaseHardeningExpressPlan from './pages/supabase-hardening-express-plan';
+import CiCdFlutterOptimizedPipeline from './pages/ci-cd-flutter-optimized-pipeline';
 
 // 404 page
 import NotFound from './pages/NotFound';
@@ -88,6 +89,9 @@ const Routes = () => {
 
           {/* Security & Hardening */}
           <Route path="/supabase-hardening-express-plan" element={<SupabaseHardeningExpressPlan />} />
+
+          {/* CI/CD & DevOps */}
+          <Route path="/ci-cd-flutter-optimized-pipeline" element={<CiCdFlutterOptimizedPipeline />} />
 
           {/* Data & Pipeline Management */}
           <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />

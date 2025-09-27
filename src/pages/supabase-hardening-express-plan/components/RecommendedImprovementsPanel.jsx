@@ -1,102 +1,91 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Database, Search, Shield, Zap, BarChart3, Loader2, CheckCircle } from 'lucide-react';
+import { TrendingUp, Database, Shield, Gauge, Loader2, BarChart3 } from 'lucide-react';
 import Icon from '../../../components/AppIcon';
 
 
 const RecommendedImprovementsPanel = ({ data, onExecuteAction, executingActions }) => {
   const improvements = [
     {
-      id: 'rls_policies',
-      title: 'RLS sur toutes les tables exposées',
-      status: data?.compliance?.compliantReports || 0,
-      total: data?.compliance?.totalReports || 0,
+      id: 'rls_tables',
+      title: 'RLS activé sur toutes les tables exposées',
+      status: 'À configurer',
       impact: 'Élevé',
-      performance: '+25% sécurité',
-      action: 'implement_comprehensive_rls',
+      priority: 'Haute',
+      action: 'enable_rls_all_tables',
       icon: Shield,
-      color: 'blue',
-      description: 'Protection Row Level Security sur toutes les tables publiques'
+      color: 'orange',
+      description: 'Sécurisation par Row Level Security des accès données'
     },
     {
-      id: 'database_indexes',
+      id: 'db_indexes',
       title: 'Index sur created_at, user_id, colonnes filtrées',
-      status: Math.floor(Math.random() * 15) + 5, // Mock data
-      total: 23,
+      status: 'Optimisation requise',
       impact: 'Moyen',
-      performance: '+40% requêtes',
+      priority: 'Moyenne',
       action: 'optimize_database_indexes',
-      icon: Search,
-      color: 'green',
-      description: 'Optimisation des performances des requêtes fréquentes'
+      icon: Database,
+      color: 'orange',
+      description: 'Amélioration des performances des requêtes principales'
     },
     {
       id: 'storage_policies',
-      title: 'Policies Storage → buckets privés, auth.uid()',
-      status: 2,
-      total: 4,
+      title: 'Policies Storage → buckets privés, accès via auth.uid()',
+      status: 'À sécuriser',
       impact: 'Élevé',
-      performance: '+95% sécurité',
+      priority: 'Haute',
       action: 'secure_storage_policies',
       icon: Database,
-      color: 'purple',
-      description: 'Sécurisation complète des buckets de stockage'
+      color: 'orange',
+      description: 'Sécurisation des accès aux fichiers stockés'
     },
     {
       id: 'rate_limiting',
       title: 'Rate limiting sur Edge Functions sensibles',
-      status: data?.system?.healthyAgents || 0,
-      total: data?.system?.totalAgents || 1,
+      status: 'Non configuré',
       impact: 'Moyen',
-      performance: '+60% protection',
-      action: 'implement_rate_limiting',
-      icon: Zap,
+      priority: 'Moyenne',
+      action: 'setup_rate_limiting',
+      icon: Gauge,
       color: 'orange',
-      description: 'Protection contre les abus et attaques DDoS'
+      description: 'Protection contre les abus et attaques DoS'
     },
     {
-      id: 'monitoring_alerts',
+      id: 'logs_alerts',
       title: 'Logs & Alerts → erreurs 5xx, latence, auth fails',
-      status: data?.dns?.healthyChecks || 0,
-      total: data?.dns?.totalChecks || 1,
+      status: 'À compléter',
       impact: 'Moyen',
-      performance: '+80% visibilité',
-      action: 'setup_comprehensive_monitoring',
+      priority: 'Moyenne',
+      action: 'configure_monitoring',
       icon: BarChart3,
-      color: 'teal',
-      description: 'Surveillance proactive des métriques critiques'
+      color: 'orange',
+      description: 'Surveillance proactive des incidents système'
     }
   ];
 
-  const getCompletionPercentage = (status, total) => {
-    if (total === 0) return 0;
-    return Math.round((status / total) * 100);
-  };
-
-  const getCompletionColor = (percentage) => {
-    if (percentage >= 80) return 'from-green-500 to-green-600';
-    if (percentage >= 60) return 'from-yellow-500 to-yellow-600';
-    if (percentage >= 40) return 'from-orange-500 to-orange-600';
-    return 'from-red-500 to-red-600';
-  };
-
-  const getImpactColor = (impact) => {
-    switch (impact) {
-      case 'Élevé': return 'text-orange-400';
-      case 'Moyen': return 'text-yellow-400';
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'Haute': return 'text-red-400';
+      case 'Moyenne': return 'text-orange-400';
+      case 'Basse': return 'text-yellow-400';
       default: return 'text-slate-400';
     }
   };
 
+  const getPriorityBadge = (priority) => {
+    const colors = {
+      'Haute': 'bg-red-500/20 text-red-400',
+      'Moyenne': 'bg-orange-500/20 text-orange-400',
+      'Basse': 'bg-yellow-500/20 text-yellow-400'
+    };
+    return colors?.[priority] || 'bg-slate-500/20 text-slate-400';
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6"
-    >
+    <div className="h-full">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-blue-500/20 rounded-lg">
-          <TrendingUp className="w-6 h-6 text-blue-400" />
+        <div className="p-2 bg-orange-500/20 rounded-lg">
+          <TrendingUp className="w-6 h-6 text-orange-400" />
         </div>
         <h2 className="text-xl font-bold text-white">Améliorations recommandées</h2>
       </div>
@@ -104,7 +93,6 @@ const RecommendedImprovementsPanel = ({ data, onExecuteAction, executingActions 
         {improvements?.map((improvement, index) => {
           const Icon = improvement?.icon;
           const isExecuting = executingActions?.[`improvement_${improvement?.id}`];
-          const completionPercentage = getCompletionPercentage(improvement?.status, improvement?.total);
           
           return (
             <motion.div
@@ -112,42 +100,32 @@ const RecommendedImprovementsPanel = ({ data, onExecuteAction, executingActions 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="group relative bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/50 rounded-xl p-4 transition-all duration-200"
+              className="group relative bg-slate-800/40 hover:bg-slate-800/60 border border-orange-500/30 rounded-xl p-4 transition-all duration-200"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
-                  <div className={`p-2.5 bg-${improvement?.color}-500/20 rounded-lg flex-shrink-0`}>
-                    <Icon className={`w-5 h-5 text-${improvement?.color}-400`} />
+                  <div className="p-2.5 bg-orange-500/20 rounded-lg flex-shrink-0">
+                    <Icon className="w-5 h-5 text-orange-400" />
                   </div>
                   
                   <div className="flex-1">
                     <h3 className="font-semibold text-white mb-1">{improvement?.title}</h3>
                     
-                    <p className="text-sm text-slate-400 mb-3">{improvement?.description}</p>
-                    
-                    {/* Progress Bar */}
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                        <span>Progression</span>
-                        <span>{improvement?.status}/{improvement?.total} ({completionPercentage}%)</span>
-                      </div>
-                      <div className="w-full bg-slate-600/50 rounded-full h-2">
-                        <div 
-                          className={`bg-gradient-to-r ${getCompletionColor(completionPercentage)} h-2 rounded-full transition-all duration-500`}
-                          style={{ width: `${completionPercentage}%` }}
-                        />
-                      </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm text-orange-300">{improvement?.status}</span>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    <p className="text-sm text-slate-400 mb-3">{improvement?.description}</p>
+                    
+                    <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-slate-500">Impact:</span>
-                        <span className={`text-xs font-medium ${getImpactColor(improvement?.impact)}`}>
+                        <span className={`text-xs font-medium ${getPriorityColor(improvement?.impact)}`}>
                           {improvement?.impact}
                         </span>
                       </div>
-                      <div className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                        {improvement?.performance}
+                      <div className={`px-2 py-0.5 ${getPriorityBadge(improvement?.priority)} text-xs rounded-full`}>
+                        {improvement?.priority}
                       </div>
                     </div>
                   </div>
@@ -155,44 +133,46 @@ const RecommendedImprovementsPanel = ({ data, onExecuteAction, executingActions 
 
                 <button
                   onClick={() => onExecuteAction(`improvement_${improvement?.id}`, { type: improvement?.action })}
-                  disabled={isExecuting || completionPercentage === 100}
-                  className="px-3 py-1.5 bg-teal-500/20 hover:bg-teal-500/30 text-teal-400 border border-teal-500/30 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  disabled={isExecuting}
+                  className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
                   {isExecuting ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
-                      Optimisation...
-                    </>
-                  ) : completionPercentage === 100 ? (
-                    <>
-                      <CheckCircle className="w-3 h-3" />
-                      Terminé
+                      Configuration...
                     </>
                   ) : (
-                    'Optimiser'
+                    'Configurer'
                   )}
                 </button>
               </div>
-              {/* Completion indicator */}
-              <div className={`absolute left-0 top-0 w-1 h-full bg-gradient-to-b ${getCompletionColor(completionPercentage)} rounded-l-xl`} />
+              {/* Orange indicator line */}
+              <div className={`absolute right-0 top-0 w-1 h-full bg-gradient-to-b ${
+                improvement?.priority === 'Haute' ? 'from-red-500 to-red-600' : 
+                improvement?.priority === 'Moyenne'? 'from-orange-500 to-orange-600' : 'from-yellow-500 to-yellow-600'
+              } rounded-r-xl`} />
             </motion.div>
           );
         })}
       </div>
-      {/* Performance Summary */}
-      <div className="mt-6 p-4 bg-slate-700/20 rounded-xl">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="text-center">
-            <div className="text-slate-400">Performance moyenne</div>
-            <div className="text-xl font-bold text-green-400">+52%</div>
+      {/* Recommendations Summary */}
+      <div className="mt-6 p-4 bg-slate-800/20 rounded-xl border border-orange-500/20">
+        <div className="flex items-center justify-between text-sm mb-2">
+          <span className="text-slate-400">Améliorations recommandées</span>
+          <span className="text-white font-medium">0/5 configurées</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full" />
+            <span className="text-slate-400">2 Haute priorité</span>
           </div>
-          <div className="text-center">
-            <div className="text-slate-400">Sécurité renforcée</div>
-            <div className="text-xl font-bold text-blue-400">+68%</div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-orange-500 rounded-full" />
+            <span className="text-slate-400">3 Moyenne priorité</span>
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
