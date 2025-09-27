@@ -52,6 +52,8 @@ import ResearchInnovationCenter from './pages/research-innovation-center';
 import AIChiefsChatInterface from './pages/ai-chiefs-chat-interface';
 import SupabaseHardeningExpressPlan from './pages/supabase-hardening-express-plan';
 import CiCdFlutterOptimizedPipeline from './pages/ci-cd-flutter-optimized-pipeline';
+import CiCdFlutterOptimizedOverview from './pages/ci-cd-flutter-optimized-overview';
+import GitSecurityCleanupDocumentation from './pages/git-security-cleanup-documentation';
 
 // 404 page
 import NotFound from './pages/NotFound';
@@ -92,6 +94,8 @@ const Routes = () => {
 
           {/* CI/CD & DevOps */}
           <Route path="/ci-cd-flutter-optimized-pipeline" element={<CiCdFlutterOptimizedPipeline />} />
+          <Route path="/ci-cd-flutter-optimized-overview" element={<CiCdFlutterOptimizedOverview />} />
+          <Route path="/git-security-cleanup-documentation" element={<GitSecurityCleanupDocumentation />} />
 
           {/* Data & Pipeline Management */}
           <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />
