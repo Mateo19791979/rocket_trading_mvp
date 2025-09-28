@@ -99,8 +99,21 @@ const AiChiefsChatInterface = () => {
 
         {/* Chat Interface Overlay */}
         {activeChat && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={(e) => {
+              // Fermer si on clique sur l'overlay (pas sur le chat)
+              if (e?.target === e?.currentTarget) {
+                handleCloseChat();
+              }
+            }}
+          >
+            <div 
+              className="w-full max-w-4xl max-h-[90vh] overflow-hidden"
+              onClick={(e) => {
+                e?.stopPropagation(); // Empêcher la fermeture quand on clique sur le chat
+              }}
+            >
               <ChatInterfacePanel
                 chiefRole={activeChat}
                 onClose={handleCloseChat}

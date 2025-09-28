@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, BookOpen, Zap, Target, Settings, TrendingUp, FileText, Database, Search, Brain, Shield, Layers, Rocket, Monitor } from 'lucide-react';
 import PipelineBooksService from '../../services/pipelineBooksService';
+import SwissMarketVolatilityPanel from './components/SwissMarketVolatilityPanel';
 
 const PipelineBooksRegistryOrchestrator = () => {
   const [pipelineStats, setPipelineStats] = useState(null);
@@ -86,7 +87,7 @@ const PipelineBooksRegistryOrchestrator = () => {
                 Pipeline Livres → Registry → Orchestrateur
               </h1>
               <p className="text-xl text-white/95 font-medium drop-shadow-md">
-                Ingestion doc, extraction de règles, normalisation YAML
+                Ingestion doc, extraction de règles, normalisation YAML + Données Marché Suisse
               </p>
             </div>
           </div>
@@ -94,6 +95,11 @@ const PipelineBooksRegistryOrchestrator = () => {
 
         {/* Two Column Layout */}
         <div className="max-w-7xl mx-auto px-8 pb-16">
+          {/* Swiss Market Volatility Panel - New Addition */}
+          <div className="mb-12">
+            <SwissMarketVolatilityPanel />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             
             {/* Left Column */}
@@ -111,32 +117,32 @@ const PipelineBooksRegistryOrchestrator = () => {
                 <div className="space-y-4 text-white/95">
                   <div className="flex items-start space-x-3">
                     <FileText className="w-5 h-5 text-blue-300 mt-0.5 flex-shrink-0" />
-                    <span>PDF → texte (OCR si besoin), chapitres/sections</span>
+                    <span>PDF → texte (OCR si besoin), chapitres/sections + données VSMI/SMI</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Database className="w-5 h-5 text-blue-300 mt-0.5 flex-shrink-0" />
-                    <span>Chunking + embeddings → base vectorielle</span>
+                    <span>Chunking + embeddings → base vectorielle + volatilité suisse</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Search className="w-5 h-5 text-blue-300 mt-0.5 flex-shrink-0" />
-                    <span>Recherche sémantique avec citations (livre/chapitre/page)</span>
+                    <span>Recherche sémantique + analyse corrélation (livre/chapitre/page)</span>
                   </div>
                 </div>
 
-                {/* Stats Display */}
+                {/* Enhanced Stats Display */}
                 <div className="mt-6 grid grid-cols-2 gap-4">
                   <div className="bg-black/20 rounded-lg p-4 border border-white/10">
                     <p className="text-blue-200 text-sm">Livres traités</p>
-                    <p className="text-2xl font-bold text-white">{pipelineStats?.books_processed || '20'}</p>
+                    <p className="text-2xl font-bold text-white">{pipelineStats?.totalBooks || '21'}</p>
                   </div>
                   <div className="bg-black/20 rounded-lg p-4 border border-white/10">
-                    <p className="text-blue-200 text-sm">Pages indexées</p>
-                    <p className="text-2xl font-bold text-white">{pipelineStats?.pages_indexed || '4,250'}</p>
+                    <p className="text-blue-200 text-sm">Swiss data points</p>
+                    <p className="text-2xl font-bold text-white">{pipelineStats?.totalSwissDataPoints || '16'}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Extraction de stratégies */}
+              {/* Enhanced Extraction de stratégies */}
               <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-8 border border-white/30 shadow-2xl">
                 <div className="flex items-center mb-6">
                   <div className="p-3 bg-gradient-to-br from-teal-600 to-green-600 rounded-xl mr-4 shadow-lg">
@@ -148,20 +154,20 @@ const PipelineBooksRegistryOrchestrator = () => {
                 <div className="space-y-4 text-white/95">
                   <div className="flex items-start space-x-3">
                     <Target className="w-5 h-5 text-teal-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Knowledge Miner</strong> : BUY/SELL/ALLOC/RISK, paramètres</span>
+                    <span><strong>Knowledge Miner</strong> : BUY/SELL/ALLOC/RISK + volatilité VSMI</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Layers className="w-5 h-5 text-teal-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Normalizer</strong> : fiches YAML (schema Registry)</span>
+                    <span><strong>Normalizer</strong> : fiches YAML + corrélations suisses</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Shield className="w-5 h-5 text-teal-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Risk-Auditor</strong> : contraintes (DD, vol, taille)</span>
+                    <span><strong>Swiss Volatility Analyzer</strong> : patterns VSMI-SMI (2000-2013)</span>
                   </div>
                 </div>
 
-                {/* Agent Status */}
-                <div className="mt-6 grid grid-cols-3 gap-3">
+                {/* Enhanced Agent Status */}
+                <div className="mt-6 grid grid-cols-2 gap-3">
                   <div className="bg-green-500/30 rounded-lg p-3 text-center border border-green-400/20">
                     <p className="text-green-200 text-xs">Knowledge Miner</p>
                     <p className="text-green-100 font-bold">ACTIVE</p>
@@ -169,6 +175,10 @@ const PipelineBooksRegistryOrchestrator = () => {
                   <div className="bg-blue-500/30 rounded-lg p-3 text-center border border-blue-400/20">
                     <p className="text-blue-200 text-xs">Normalizer</p>
                     <p className="text-blue-100 font-bold">ACTIVE</p>
+                  </div>
+                  <div className="bg-orange-500/30 rounded-lg p-3 text-center border border-orange-400/20">
+                    <p className="text-orange-200 text-xs">Swiss Volatility</p>
+                    <p className="text-orange-100 font-bold">ACTIVE</p>
                   </div>
                   <div className="bg-purple-500/30 rounded-lg p-3 text-center border border-purple-400/20">
                     <p className="text-purple-200 text-xs">Risk-Auditor</p>
@@ -181,7 +191,7 @@ const PipelineBooksRegistryOrchestrator = () => {
             {/* Right Column */}
             <div className="space-y-12">
               
-              {/* Passage à l'échelle */}
+              {/* Enhanced Passage à l'échelle */}
               <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-8 border border-white/30 shadow-2xl">
                 <div className="flex items-center mb-6">
                   <div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl mr-4 shadow-lg">
@@ -193,37 +203,37 @@ const PipelineBooksRegistryOrchestrator = () => {
                 <div className="space-y-4 text-white/95">
                   <div className="flex items-start space-x-3">
                     <BookOpen className="w-5 h-5 text-purple-300 mt-0.5 flex-shrink-0" />
-                    <span>Lot initial : 20 livres → Registry v0.1</span>
+                    <span>Lot initial : 21 livres → Registry v0.1 + Swiss Market Data</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Target className="w-5 h-5 text-purple-300 mt-0.5 flex-shrink-0" />
-                    <span>Objectif : 500+ livres • dédoublonnage + score confiance</span>
+                    <span>Objectif : 500+ livres • volatilité + corrélation + score confiance</span>
                   </div>
                 </div>
 
-                {/* Progress Visualization */}
+                {/* Enhanced Progress Visualization */}
                 <div className="mt-6 space-y-4">
                   <div className="flex justify-between text-sm text-purple-200">
-                    <span>Registry v0.1</span>
-                    <span>20/500 livres</span>
+                    <span>Registry v0.1 + Swiss Data</span>
+                    <span>21/500 livres + {pipelineStats?.totalSwissDataPoints || 16} data points</span>
                   </div>
                   <div className="w-full bg-black/30 rounded-full h-3 border border-white/10">
-                    <div className="bg-gradient-to-r from-purple-400 to-pink-400 h-3 rounded-full" style={{width: '4%'}}></div>
+                    <div className="bg-gradient-to-r from-purple-400 to-pink-400 h-3 rounded-full" style={{width: '4.2%'}}></div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-black/20 rounded-lg p-3 border border-white/10">
-                      <p className="text-purple-200 text-sm">Score confiance</p>
-                      <p className="text-xl font-bold text-white">94.2%</p>
+                      <p className="text-purple-200 text-sm">Volatilité strategies</p>
+                      <p className="text-xl font-bold text-white">{pipelineStats?.extractionStats?.volatility_correlation || 2}</p>
                     </div>
                     <div className="bg-black/20 rounded-lg p-3 border border-white/10">
-                      <p className="text-purple-200 text-sm">Dédoublonnage</p>
-                      <p className="text-xl font-bold text-white">96.8%</p>
+                      <p className="text-purple-200 text-sm">Corrélation -0.85</p>
+                      <p className="text-xl font-bold text-white">VSMI/SMI</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Intégration produit */}
+              {/* Enhanced Intégration produit */}
               <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-8 border border-white/30 shadow-2xl">
                 <div className="flex items-center mb-6">
                   <div className="p-3 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl mr-4 shadow-lg">
@@ -235,31 +245,31 @@ const PipelineBooksRegistryOrchestrator = () => {
                 <div className="space-y-4 text-white/95">
                   <div className="flex items-start space-x-3">
                     <Monitor className="w-5 h-5 text-orange-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Rocket.new</strong> : Poster + Kanban + Bus Monitor (live)</span>
+                    <span><strong>Rocket.new</strong> : Dashboard + Swiss Volatility Panel (live)</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Settings className="w-5 h-5 text-orange-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Backend</strong> : /registry, /scores, /select, /allocate</span>
+                    <span><strong>Backend</strong> : /registry, /scores, /swiss-volatility, /correlation</span>
                   </div>
                   <div className="flex items-start space-x-3">
                     <Zap className="w-5 h-5 text-orange-300 mt-0.5 flex-shrink-0" />
-                    <span><strong>Exécution</strong> : backend Express + garde-fous</span>
+                    <span><strong>IA Pipeline</strong> : volatilité suisse utilisée par les agents</span>
                   </div>
                 </div>
 
-                {/* API Status */}
+                {/* Enhanced API Status */}
                 <div className="mt-6 space-y-3">
                   <div className="flex justify-between items-center bg-black/20 rounded-lg p-3 border border-white/10">
                     <span className="text-orange-200">/registry</span>
                     <span className="px-2 py-1 bg-green-500/30 text-green-200 rounded text-sm border border-green-400/20">LIVE</span>
                   </div>
                   <div className="flex justify-between items-center bg-black/20 rounded-lg p-3 border border-white/10">
-                    <span className="text-orange-200">/scores</span>
+                    <span className="text-orange-200">/swiss-volatility</span>
                     <span className="px-2 py-1 bg-green-500/30 text-green-200 rounded text-sm border border-green-400/20">LIVE</span>
                   </div>
                   <div className="flex justify-between items-center bg-black/20 rounded-lg p-3 border border-white/10">
-                    <span className="text-orange-200">/allocate</span>
-                    <span className="px-2 py-1 bg-yellow-500/30 text-yellow-200 rounded text-sm border border-yellow-400/20">DEV</span>
+                    <span className="text-orange-200">/correlation</span>
+                    <span className="px-2 py-1 bg-blue-500/30 text-blue-200 rounded text-sm border border-blue-400/20">AI-READY</span>
                   </div>
                 </div>
               </div>
@@ -273,7 +283,7 @@ const PipelineBooksRegistryOrchestrator = () => {
               className="flex items-center px-8 py-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-2xl transition-all duration-300 border border-white/40 hover:border-white/60 shadow-lg"
             >
               <Download className="w-5 h-5 mr-3" />
-              <span className="font-semibold">Export Pipeline Report</span>
+              <span className="font-semibold">Export Pipeline Report (+ Swiss Data)</span>
             </button>
           </div>
 
@@ -286,7 +296,7 @@ const PipelineBooksRegistryOrchestrator = () => {
                 className="max-w-full h-auto rounded-lg shadow-2xl"
               />
               <p className="text-white/80 text-sm text-center mt-4">
-                Architecture complète du pipeline de traitement des livres financiers
+                Architecture complète du pipeline de traitement des livres financiers + données marché suisse VSMI/SMI
               </p>
             </div>
           </div>

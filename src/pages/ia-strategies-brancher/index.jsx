@@ -108,7 +108,7 @@ export default function IAStrategiesBrancher() {
               IA Stratégies Brancher
             </h1>
             <p className="text-gray-400">
-              Screening automatique: Actions >50M capitalisation, P/E sous-valorisé, sous-performance temporaire
+              Screening automatique: Actions &gt;50M capitalisation, P/E sous-valorisé, sous-performance temporaire
             </p>
           </div>
           
@@ -205,7 +205,7 @@ export default function IAStrategiesBrancher() {
             IA Stratégies Brancher
           </h1>
           <p className="text-gray-400">
-            Screening spécialisé: Grandes capitalisations (>50M CHF) sous-valorisées avec potentiel de rebond
+            Screening spécialisé: Grandes capitalisations (&gt;50M CHF) sous-valorisées avec potentiel de rebond
           </p>
         </div>
 

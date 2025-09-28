@@ -257,21 +257,36 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setIsMinimized(!isMinimized)}
+            onClick={(e) => {
+              e?.preventDefault();
+              e?.stopPropagation();
+              setIsMinimized(!isMinimized);
+            }}
             className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+            title={isMinimized ? "Agrandir" : "Réduire"}
+            type="button"
           >
             {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
           </button>
           
           <div className="relative group">
-            <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors">
+            <button 
+              className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+              title="Plus d'options"
+              type="button"
+            >
               <MoreVertical className="w-4 h-4" />
             </button>
             
             <div className="absolute right-0 top-full mt-1 w-48 bg-gray-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
               <button
-                onClick={handleArchiveConversation}
+                onClick={(e) => {
+                  e?.preventDefault();
+                  e?.stopPropagation();
+                  handleArchiveConversation();
+                }}
                 className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 rounded-t-lg flex items-center space-x-2"
+                type="button"
               >
                 <Archive className="w-4 h-4" />
                 <span>Archiver la conversation</span>
@@ -280,8 +295,18 @@ const ChatInterfacePanel = ({ chiefRole, onClose }) => {
           </div>
           
           <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+            onClick={(e) => {
+              e?.preventDefault();
+              e?.stopPropagation();
+              console.log('Close button clicked'); // Debug log
+              if (onClose && typeof onClose === 'function') {
+                onClose();
+              }
+            }}
+            className="p-2 text-gray-400 hover:text-white hover:bg-red-600 hover:bg-opacity-70 rounded transition-colors cursor-pointer select-none"
+            title="Fermer le chat"
+            type="button"
+            style={{ minWidth: '32px', minHeight: '32px' }}
           >
             <X className="w-4 h-4" />
           </button>

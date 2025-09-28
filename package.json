@@ -39,6 +39,7 @@
     "axios": "^1.12.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
@@ -54,6 +55,7 @@
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
+    "pm2": "^5.4.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
@@ -71,8 +73,12 @@
   },
   "scripts": {
     "start": "vite",
-    "build": "vite build --sourcemap",
-    "serve": "vite preview"
+    "build": "vite build && npm run check:api",
+    "serve": "vite preview",
+    "dev:backend": "cd backend && node server.js",
+    "start:backend": "cd backend && node server.js",
+    "check:api": "cd backend && node check_api.js",
+    "dev:full": "concurrently \"npm run start\" \"npm run dev:backend\""
   },
   "eslintConfig": {
     "extends": [
