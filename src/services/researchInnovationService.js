@@ -50,13 +50,26 @@ export const researchInnovationService = {
 
   async getPipelineRegistry() {
     try {
-      const { data, error } = await supabase?.from('pipeline_registry')?.select('*')?.order('created_at', { ascending: false })?.limit(1)?.single();
+      const { data, error } = await supabase?.from('pipeline_registry')?.select('*')?.order('created_at', { ascending: false })?.limit(1);
       
       if (error) {
         throw new Error(`Failed to fetch pipeline registry: ${error.message}`);
       }
       
-      return data;
+      // Return the first row if it exists, otherwise return a default structure
+      return data?.[0] || {
+        id: null,
+        registry_version: 'v0.1',
+        confidence_threshold: 0.70,
+        deduplication_score: 0.00,
+        total_books_processed: 0,
+        total_strategies_extracted: 0,
+        integration_status: {},
+        scaling_config: {},
+        last_processing_date: null,
+        created_at: new Date()?.toISOString(),
+        updated_at: new Date()?.toISOString()
+      };
     } catch (error) {
       console.error('Error fetching pipeline registry:', error);
       throw error;
