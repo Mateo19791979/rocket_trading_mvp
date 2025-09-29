@@ -29,9 +29,13 @@ import ResearchInnovationCenter from './pages/research-innovation-center';
 // STRATEGY Pages - PRESERVED AS INDIVIDUAL ROUTES (2 additional pages)
 import StrategyManagement from './pages/strategy-management';
 import RegistryV01StrategyCatalogue from './pages/registry-v0-1-strategy-catalogue';
+import StrategyRegistryBuilder from './pages/strategy-registry-builder';
 
 // 404 page
 import NotFound from './pages/NotFound';
+
+import KnowledgePipelineManagementCenter from './pages/knowledge-pipeline-management-center';
+import PdfDocumentIngestionInterface from './pages/pdf-document-ingestion-interface';
 
 const Routes = () => {
   return (
@@ -47,6 +51,11 @@ const Routes = () => {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/signup" element={<Signup />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+
+          {/* === NEW KNOWLEDGE PIPELINE PAGES === */}
+          <Route path="/knowledge-pipeline-management-center" element={<KnowledgePipelineManagementCenter />} />
+          <Route path="/pdf-document-ingestion-interface" element={<PdfDocumentIngestionInterface />} />
+          <Route path="/strategy-registry-builder" element={<StrategyRegistryBuilder />} />
 
           {/* === AI PAGES PRESERVED INDIVIDUALLY (12 pages) === */}
           <Route path="/ai-agents" element={<AIAgents />} />

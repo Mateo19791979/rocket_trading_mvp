@@ -13,96 +13,65 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // ✅ REQUIRED: Separate async operations object
+  const profileOperations = {
+    async load(userId) {
+      if (!userId) return;
+      setProfileLoading(true);
+      try {
+        const { data, error } = await supabase
+          ?.from('user_profiles')
+          ?.select('*')
+          ?.eq('id', userId)
+          ?.single();
+        
+        if (!error && data) {
+          setUserProfile(data);
+        } else if (error && error?.code !== 'PGRST116') {
+          // PGRST116 is "not found" - user_profile might not exist yet
+          console.warn('Profile load error:', error);
+        }
+      } catch (error) {
+        console.warn('Profile load error:', error);
+      } finally {
+        setProfileLoading(false);
+      }
+    },
+    
+    clear() {
+      setUserProfile(null);
+      setProfileLoading(false);
+    }
+  };
+
+  // ✅ REQUIRED: Protected auth handlers
+  const authStateHandlers = {
+    // CRITICAL: This MUST remain synchronous
+    onChange: (event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      
+      if (session?.user) {
+        profileOperations?.load(session?.user?.id); // Fire-and-forget
+      } else {
+        profileOperations?.clear();
+      }
+    }
+  };
 
   useEffect(() => {
     // Get initial session
-    const getInitialSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase?.auth?.getSession();
-        if (error) {
-          console.error('Error getting session:', error);
-          // If there's no session, try to authenticate with demo user
-          await attemptDemoLogin();
-          return;
-        }
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // If no session found, try demo login
-        if (!session) {
-          await attemptDemoLogin();
-        }
-      } catch (error) {
-        console.error('Session error:', error);
-        await attemptDemoLogin();
-      } finally {
-        setLoading(false);
-      }
-    };
+    supabase?.auth?.getSession()?.then(({ data: { session } }) => {
+      authStateHandlers?.onChange(null, session);
+    });
 
-    // Auto demo login for development/demo purposes
-    const attemptDemoLogin = async () => {
-      try {
-        console.log('Attempting auto demo login...');
-        const { data, error } = await supabase?.auth?.signInWithPassword({
-          email: 'trader@tradingai.com',
-          password: 'demo123456'
-        });
-
-        if (error) {
-          console.warn('Demo login failed, creating temporary session:', error);
-          // Fallback: create a temporary session for demo purposes
-          const mockUser = {
-            id: '145d705c-d690-4aa6-9716-6c4ce8981ffe',
-            email: 'trader@tradingai.com',
-            user_metadata: { full_name: 'John Trader' },
-            app_metadata: {},
-            aud: 'authenticated',
-            created_at: new Date()?.toISOString()
-          };
-          
-          const mockSession = {
-            access_token: 'mock-token',
-            refresh_token: 'mock-refresh',
-            expires_in: 3600,
-            token_type: 'bearer',
-            user: mockUser
-          };
-          
-          setUser(mockUser);
-          setSession(mockSession);
-          console.log('Demo session created:', mockUser?.email);
-        } else if (data?.user) {
-          setUser(data?.user);
-          setSession(data?.session);
-          console.log('Demo login successful:', data?.user?.email);
-        }
-      } catch (err) {
-        console.error('Demo login attempt failed:', err);
-        // Create basic mock session as last resort
-        const mockUser = {
-          id: '145d705c-d690-4aa6-9716-6c4ce8981ffe',
-          email: 'trader@tradingai.com',
-          user_metadata: { full_name: 'John Trader' }
-        };
-        setUser(mockUser);
-        setSession({ user: mockUser });
-      }
-    };
-
-    getInitialSession();
-
-    // Listen for auth changes
+    // PROTECTED: Never modify this callback signature
     const { data: { subscription } } = supabase?.auth?.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
+      authStateHandlers?.onChange
     );
 
     return () => subscription?.unsubscribe();
@@ -117,10 +86,11 @@ export const AuthProvider = ({ children }) => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        return { data: null, error: error?.message };
+      }
       return { data, error: null };
     } catch (error) {
-      console.error('Sign in error:', error);
       return { data: null, error: error?.message };
     } finally {
       setLoading(false);
@@ -139,10 +109,11 @@ export const AuthProvider = ({ children }) => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        return { data: null, error: error?.message };
+      }
       return { data, error: null };
     } catch (error) {
-      console.error('Sign up error:', error);
       return { data: null, error: error?.message };
     } finally {
       setLoading(false);
@@ -154,10 +125,11 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const { error } = await supabase?.auth?.signOut();
-      if (error) throw error;
+      if (error) {
+        return { error: error?.message };
+      }
       return { error: null };
     } catch (error) {
-      console.error('Sign out error:', error);
       return { error: error?.message };
     } finally {
       setLoading(false);
@@ -168,13 +140,14 @@ export const AuthProvider = ({ children }) => {
   const resetPassword = async (email) => {
     try {
       const { data, error } = await supabase?.auth?.resetPasswordForEmail(email, {
-        redirectTo: `${window.location?.origin}/reset-password`,
+        redirectTo: `${window?.location?.origin}/reset-password`,
       });
 
-      if (error) throw error;
+      if (error) {
+        return { data: null, error: error?.message };
+      }
       return { data, error: null };
     } catch (error) {
-      console.error('Reset password error:', error);
       return { data: null, error: error?.message };
     }
   };
@@ -186,58 +159,25 @@ export const AuthProvider = ({ children }) => {
         password: password
       });
 
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      console.error('Update password error:', error);
-      return { data: null, error: error?.message };
-    }
-  };
-
-  // Explicit demo login
-  const signInAsDemo = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase?.auth?.signInWithPassword({
-        email: 'trader@tradingai.com',
-        password: 'demo123456'
-      });
-
       if (error) {
-        console.warn('Demo login failed, using fallback:', error);
-        
-        const mockUser = {
-          id: '145d705c-d690-4aa6-9716-6c4ce8981ffe',
-          email: 'trader@tradingai.com',
-          user_metadata: { full_name: 'John Trader' }
-        };
-        
-        setUser(mockUser);
-        setSession({ user: mockUser });
-        
-        return { data: { user: mockUser }, error: null };
+        return { data: null, error: error?.message };
       }
-
       return { data, error: null };
     } catch (error) {
-      console.error('Demo sign in error:', error);
       return { data: null, error: error?.message };
-    } finally {
-      setLoading(false);
     }
   };
 
   const value = {
     user,
-    session,
+    userProfile,
     loading,
+    profileLoading,
     signIn,
     signUp,
     signOut,
     resetPassword,
     updatePassword,
-    signInAsDemo,
   };
 
   return (

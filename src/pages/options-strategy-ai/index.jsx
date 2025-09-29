@@ -7,6 +7,7 @@ import ResultsTable from './components/ResultsTable.jsx';
 import StrategyPanel from './components/StrategyPanel.jsx';
 import ScoreDetailsModal from './components/ScoreDetailsModal.jsx';
 import IVRankModal from './components/IVRankModal.jsx';
+import SupabaseNotification from '../../components/ui/SupabaseNotification.jsx';
 
 export default function OptionsStrategyAI() {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ export default function OptionsStrategyAI() {
   const [scoreDetails, setScoreDetails] = useState(null);
   const [ivRankData, setIVRankData] = useState(null);
   const [screeningMode, setScreeningMode] = useState('rebound');
+  const [showSupabaseNotification, setShowSupabaseNotification] = useState(true);
   const [filters, setFilters] = useState({
     minScore: 70,
     minMarketCap: 50000000, // 50M CHF
@@ -32,6 +34,20 @@ export default function OptionsStrategyAI() {
   useEffect(() => {
     loadScreeningResults();
   }, []);
+
+  const handleViewSupabaseScript = () => {
+    // Simuler l'affichage du script - dans un vrai cas, cela pourrait ouvrir un modal avec le contenu SQL console.log('Affichage du script SQL migration');
+    alert('Script SQL:\n\n-- 001_add_enum_volatility_correlation.sql\nALTER TYPE extraction_type ADD VALUE \'volatility_correlation\';');
+  };
+
+  const handleCopySupabaseScript = () => {
+    console.log('Script copié dans le presse-papier');
+    // Dans un vrai cas, cela copierait le contenu complet du script SQL
+  };
+
+  const handleCloseSupabaseNotification = () => {
+    setShowSupabaseNotification(false);
+  };
 
   const loadScreeningResults = async (customFilters = null) => {
     setLoading(true);
@@ -356,6 +372,15 @@ export default function OptionsStrategyAI() {
             onClose={() => setShowIVRank(false)}
           />
         )}
+
+        {/* Supabase Migration Notification */}
+        <SupabaseNotification
+          isVisible={showSupabaseNotification}
+          onClose={handleCloseSupabaseNotification}
+          onViewScript={handleViewSupabaseScript}
+          onCopyScript={handleCopySupabaseScript}
+          scriptName="001_add_enum_volatility_correlation.sql"
+        />
       </div>
     </div>
   );
