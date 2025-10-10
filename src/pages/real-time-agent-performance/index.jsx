@@ -9,6 +9,7 @@ import RealTimeActivity from './components/RealTimeActivity';
 import AgentFilters from './components/AgentFilters';
 import CapitalRequirementsCalculator from './components/CapitalRequirementsCalculator';
 import DailyIntelligenceReportCard from './components/DailyIntelligenceReportCard';
+import OrchestraDiagnosticPanel from './components/OrchestraDiagnosticPanel';
 
 export default function RealTimeAgentPerformance() {
   const [agents, setAgents] = useState([]);
@@ -162,6 +163,10 @@ export default function RealTimeAgentPerformance() {
           )}
         </div>
       </div>
+
+      {/* Orchestra Diagnostic Panel - Prominent placement */}
+      <OrchestraDiagnosticPanel />
+
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">

@@ -38,18 +38,20 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        const { data, error } = await supabase?.from('user_profiles')?.select('*')?.eq('id', userId)?.single();
+        // FIX CRITIQUE: Remplacer .single() par .limit(1) pour éviter PGRST116
+        const { data, error } = await supabase?.from('user_profiles')?.select('*')?.eq('id', userId)?.limit(1);
         
-        if (!error && data) {
-          setUserProfile(data);
+        // FIX: Vérifier si data existe et n'est pas vide
+        if (!error && data && data?.length > 0) {
+          setUserProfile(data?.[0]);
         } else {
-          // Create mock profile if database query fails
+          console.log(`[AuthContext] No profile found for user ${userId}, creating mock profile`);
+          // Create mock profile if database query fails or returns no data
           setUserProfile({
             id: userId,
-            email: user?.email || 'demo@trading-mvp.com',
-            full_name: user?.user_metadata?.full_name || 'Demo User',
-            role: 'basic_user',
-            created_at: new Date()?.toISOString()
+            email: user?.email || 'demo@trading-mvp.com',full_name: user?.user_metadata?.full_name || 'Demo User',role: 'basic_user',
+            created_at: new Date()?.toISOString(),
+            mock: true // Indicateur de profil mock
           });
         }
       } catch (error) {
@@ -57,10 +59,9 @@ export const AuthProvider = ({ children }) => {
         // Fallback to mock profile
         setUserProfile({
           id: userId,
-          email: 'demo@trading-mvp.com',
-          full_name: 'Demo User',
-          role: 'basic_user',
-          created_at: new Date()?.toISOString()
+          email: 'demo@trading-mvp.com',full_name: 'Demo User',role: 'basic_user',
+          created_at: new Date()?.toISOString(),
+          fallback: true // Indicateur de fallback
         });
       } finally {
         setProfileLoading(false);
@@ -84,14 +85,21 @@ export const AuthProvider = ({ children }) => {
           return { success: true, data: { ...userProfile, ...updates } };
         }
 
-        const { data, error } = await supabase?.from('user_profiles')?.update(updates)?.eq('id', user?.id)?.select()?.single();
+        // FIX CRITIQUE: Remplacer .single() par .select() seulement pour éviter PGRST116
+        const { data, error } = await supabase?.from('user_profiles')?.update(updates)?.eq('id', user?.id)?.select();
         
         if (error) {
+          console.error('Profile update error:', error);
           return { success: false, error: error?.message };
         }
         
-        setUserProfile(data);
-        return { success: true, data };
+        // FIX: Gérer le cas où data peut être un array
+        const updatedProfile = data && data?.length > 0 ? data?.[0] : null;
+        if (updatedProfile) {
+          setUserProfile(updatedProfile);
+        }
+        
+        return { success: true, data: updatedProfile };
       } catch (error) {
         console.error('Profile update error:', error);
         return { success: false, error: error?.message };

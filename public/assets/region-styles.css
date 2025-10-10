@@ -1,0 +1,70 @@
+:root {
+  --rg-bg: #0c1116;
+  --rg-panel: #121922;
+  --rg-border: #1f2a38;
+  --rg-text: #dbe7ff;
+  --rg-dim: #9fb4d1;
+  --rg-accent: #4aa3ff;
+  --rg-good: #2ecc71;
+  --rg-bad: #e74c3c;
+}
+
+#region-root {
+  position: relative;
+  max-width: 1400px;
+  margin: 64px auto 80px auto;
+  padding: 16px;
+  color: var(--rg-text);
+  font-family: system-ui, Segoe UI, Roboto, sans-serif;
+}
+
+.rg-hidden { display: none !important; }
+
+.rg-title { font-size: 24px; margin: 8px 0 16px; }
+
+.rg-sub { color: var(--rg-dim); margin-bottom: 12px; }
+
+.rg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.rg-card {
+  background: var(--rg-panel);
+  border: 1px solid var(--rg-border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.rg-card h4{ margin: 0 0 6px; font-size: 16px; }
+
+.rg-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; font-size: 13px; }
+
+.rg-dim { color: var(--rg-dim); }
+
+.rg-bad { color: var(--rg-bad); }
+
+.rg-good{ color:var(--rg-good); }
+
+.rg-toolbar {
+  display:flex; gap:8px; align-items:center; justify-content:space-between;
+  background:var(--rg-panel); border:1px solid var(--rg-border); border-radius:12px; padding:10px 12px; margin-bottom:12px;
+}
+
+.rg-breadcrumb { color: var(--rg-dim); font-size: 13px; }
+
+.rg-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--rg-border); padding:3px 8px; border-radius:999px; font-size:12px; }
+
+.rg-fab {
+  position: fixed; right: 16px; bottom: 16px; z-index: 2147482000;
+  background: var(--rg-panel); border: 1px solid var(--rg-border); color: var(--rg-text);
+  border-radius: 12px; padding: 8px 10px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+
+.rg-fab button { margin:0 4px; padding:6px 10px; border-radius:999px; border:1px solid var(--rg-border); background:#0e1620; color:var(--rg-text); cursor:pointer; }
+
+.rg-heartbeat { font-size:12px; color: var(--rg-dim); }
+
+@media (max-width: 1100px) { .rg-grid{ grid-template-columns: repeat(2, minmax(240px,1fr)); } }
+@media (max-width: 720px) { .rg-grid{ grid-template-columns: 1fr; } }

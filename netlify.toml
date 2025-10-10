@@ -1,0 +1,28 @@
+# CORRECTIF 2 - Alternative netlify.toml (Option B recommandée par l'utilisateur)
+[build]
+  command = "npm run build"
+  publish = "dist"        # Vite/Rocket → dist ; CRA → build
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# CORRECTIF HTTPS - Force SSL redirections
+[[redirects]]
+  from = "http://trading-mvp.com/*"
+  to = "https://trading-mvp.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.trading-mvp.com/*"
+  to = "https://trading-mvp.com/:splat"  
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.trading-mvp.com/*"
+  to = "https://trading-mvp.com/:splat"
+  status = 301
+  force = true

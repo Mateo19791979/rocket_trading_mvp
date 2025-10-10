@@ -1,0 +1,81 @@
+html, body, #root {
+  min-height: 100%;
+  height: auto;
+}
+
+main, .page-root {
+  min-height: 100vh;
+  position: relative;
+}
+
+svg, svg * {
+  overflow: visible !important;
+}
+
+/* HUD */
+.hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483000;
+  background: rgba(0, 0, 0, 0.85);
+  color: #cde;
+  padding: 6px 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hud-spacer {
+  height: 36px;
+}
+
+.btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #444;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #3a6;
+  color: #2ecc71;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.badge.down {
+  border-color: #833;
+  color: #e74c3c;
+}
+
+.badge.warn {
+  border-color: #aa6;
+  color: #f1c40f;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  color: #cde;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #222;
+}
+
+.nav a:hover {
+  background: #0b0f16;
+}

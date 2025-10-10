@@ -1,89 +1,138 @@
-/* Ensure proper scrolling */
-html {
-  scroll-behavior: smooth;
-  height: 100%;
-}
+/* 🛡️ FRONT GUARD CSS - Correctifs globaux pour la résilience */
 
-body {
+/* === 1. DÉBLOCAGE SCROLL GLOBAL === */
+html, body, #root {   
+  height: auto !important;   
+  min-height: 100vh;   
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}  
+
+body {   
+  overscroll-behavior-y: contain;   
+  -webkit-overflow-scrolling: touch; 
   margin: 0;
   padding: 0;
-  font-family: Inter;
-  min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  color: #1a202c;
+  background-color: #ffffff;
+}  
+
+/* === 2. CONTAINERS ET LAYOUT === */
+.app-root, .app-container, .page-root, .ai-panel, main {   
+  min-height: 100vh;   
+  position: relative;
+  overflow-y: auto !important;
 }
 
-#root {
-  min-height: 100vh;
-  width: 100%;
-}
-
-/* ENHANCED: Fix any potential scroll blocking */
-* {
-  box-sizing: border-box;
-  line-height: normal;
-  font-family: inherit;
-  margin: unset;
-}
-
-/* ADDED: Specific fixes for knowledge base page scroll issues */
-.knowledge-base-container {
-  min-height: 100vh;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-}
-
-/* ENHANCED: Ensure scroll works on all containers */
 .container, .main-content, .page-container {
+  overflow-y: auto !important;
+  max-height: none !important;
+}
+
+/* === 3. SVG FIXES - Stop les découpes et scroll figé === */
+svg, svg * {
+  overflow: visible !important;
+}
+
+/* Prevent SVG from interfering with layout */
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* === 4. OVERLAY ET MODAL FIXES === */
+.overlay, .backdrop {   
+  pointer-events: none;
+} 
+
+.overlay *, .backdrop * {   
+  pointer-events: auto;
+}
+
+/* Modal and overlay scroll management */
+.modal-open {
+  overflow: hidden;
+}
+
+.modal-overlay {
   overflow-y: auto;
-  max-height: 100vh;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* ENHANCED: Better scroll container management */
-.scroll-container {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #64748b #1e293b;
+/* === 5. TAILWIND CONFLICTS RESOLUTION === */
+.overflow-hidden {
+  overflow: visible !important; /* CRITICAL: Prevent scroll blocking */
 }
 
-/* Reset any fixed positioning that might block scroll */
-.fixed, .sticky {
-  z-index: 9999;
+.overflow-y-auto {
+  overflow-y: auto !important;
 }
 
-/* ENHANCED: Improved scrollbar styling for better visibility */
+.min-h-screen {
+  min-height: 100vh !important;
+  height: auto !important;
+}
+
+.h-screen {
+  height: auto !important;
+  min-height: 100vh !important;
+}
+
+/* === 6. SCROLLBAR STYLING === */
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e293b;
-  border-radius: 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #64748b;
-  border-radius: 6px;
-  border: 2px solid #1e293b;
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* ENHANCED: Firefox scrollbar with dark theme */
+/* Firefox scrollbar */
 * {
-  scrollbar-width: auto;
-  scrollbar-color: #64748b #1e293b;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
-/* ADDED: Fix for gradient backgrounds that might interfere with scroll */
-.gradient-bg {
-  background-attachment: fixed;
-  min-height: 100vh;
+/* === 7. ENHANCED MOBILE SUPPORT === */
+@media (max-width: 768px) {
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    position: relative;
+  }
+  
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent viewport zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+  }
 }
 
-/* ADDED: Prevent overflow issues in grid layouts */
+/* === 8. LAYOUT STABILITY === */
+img, video, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent layout shifts */
 .grid-container {
   overflow: visible;
   min-height: 0;
@@ -94,70 +143,254 @@ body {
   overflow: hidden;
 }
 
-/* ADDED: Specific fixes for Tailwind CSS conflicts */
-.min-h-screen {
-  min-height: 100vh !important;
-  height: auto !important;
+/* === 9. SAFE MODE SPECIFIC STYLES === */
+.safe-mode-active {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
 
-/* ADDED: Ensure proper height calculations for dark theme containers */
-.bg-slate-900, .bg-slate-800 {
-  min-height: fit-content;
-}
-
-/* ADDED: Debug helpers for scroll issues (remove in production) */
-.scroll-debug {
-  border: 1px dashed rgba(59, 130, 246, 0.5);
-  position: relative;
-}
-
-.scroll-debug::after {
-  content: 'Scroll OK';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: rgba(59, 130, 246, 0.8);
+.safe-mode-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #f59e0b;
   color: white;
-  font-size: 10px;
-  padding: 2px 4px;
-  border-radius: 2px;
-  z-index: 10000;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* ADDED: Force proper rendering for React components */
-[data-react-component] {
-  display: block;
-  overflow: visible;
+/* === 10. ERROR BOUNDARY ENHANCEMENTS === */
+.error-boundary {
+  border: 2px solid #ef4444;
+  border-radius: 8px;
+  background: #fef2f2;
+  padding: 1rem;
+  margin: 1rem 0;
 }
 
-/* ADDED: Fix for potential Tailwind utility conflicts */
-.overflow-y-auto {
-  overflow-y: auto !important;
+.error-boundary-dark {
+  background: #1f2937;
+  border-color: #dc2626;
+  color: #f3f4f6;
 }
 
-.overflow-hidden {
-  overflow: hidden !important;
+/* === 11. ANIMATION PERFORMANCE === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* ENHANCED: Better mobile scroll handling */
-@media (max-width: 768px) {
-  body {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+/* Smooth animations for normal users */
+@media (prefers-reduced-motion: no-preference) {
+  .transition-trading {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  .scroll-container {
-    -webkit-overflow-scrolling: touch;
+  .transition-trading-fast {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-/* ADDED: Prevent layout shifts that could break scroll */
-img, video, canvas, iframe {
-  max-width: 100%;
-  height: auto;
+/* === 12. DARK MODE SUPPORT === */
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e2e8f0;
+    background-color: #0f172a;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-color: #1e293b;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  * {
+    scrollbar-color: #475569 #1e293b;
+  }
 }
 
-/* ADDED: Ensure proper stacking context for scrollable elements */
-.z-50, .z-40, .z-30 {
+/* === 13. FOCUS MANAGEMENT === */
+:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* === 14. LOADING AND SKELETON STATES === */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* === 15. PRINT STYLES === */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .safe-mode-banner {
+    display: none;
+  }
+}
+
+/* === 16. HIGH CONTRAST MODE === */
+@media (prefers-contrast: high) {
+  .error-boundary {
+    border-width: 3px;
+    border-style: solid;
+  }
+  
+  button, a {
+    outline: 2px solid;
+    outline-offset: 2px;
+  }
+}
+
+/* === 17. UTILITY CLASSES FOR DEBUGGING === */
+.debug-scroll {
+  border: 2px dashed #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.debug-overflow {
+  outline: 2px solid #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+}
+
+/* === 18. TOAST NOTIFICATIONS === */
+.toast-notification {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  font-size: 0.875rem;
+  max-width: 20rem;
+  word-wrap: break-word;
+}
+
+.toast-success {
+  background: #10b981;
+  color: white;
+}
+
+.toast-error {
+  background: #ef4444;
+  color: white;
+}
+
+.toast-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.toast-info {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Toast animations */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+.toast-exit {
+  animation: toast-slide-out 0.3s ease-in;
+}
+
+/* === 19. CRITICAL ERROR DISPLAY === */
+.critical-error {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: system-ui, sans-serif;
+}
+
+.critical-error-content {
+  max-width: 90vw;
+  max-height: 90vh;
+  padding: 2rem;
+  text-align: center;
+  overflow-y: auto;
+  background: #1f2937;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* === 20. FINAL OVERRIDES === */
+/* Ensure nothing can permanently block the interface */
+* {
+  box-sizing: border-box;
   position: relative;
+}
+
+/* Emergency reset for completely broken layouts */
+.emergency-reset {
+  all: initial;
+  display: block !important;
+  position: static !important;
+  overflow: visible !important;
+  height: auto !important;
+  width: auto !important;
+  font-family: system-ui, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
 }

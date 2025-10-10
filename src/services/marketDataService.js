@@ -8,25 +8,211 @@ import { finnhubApiService } from './finnhubApiService';
 export class MarketDataService {
   constructor() {
     this.supabase = supabase;
-    this.queryTimeout = 8000; // Augmenté de 5000ms à 8000ms pour réduire les timeouts
-    this.maxRetries = 1; // Réduit de 2 à 1 pour éviter les boucles
+    this.queryTimeout = 5000; // RÉDUCTION de 8000ms à 5000ms
+    this.maxRetries = 0; // ARRÊT TOTAL des retries pour éviter les boucles
     
-    // FIX CRITIQUE 1: Circuit breaker global pour le service
+    // HOT-FIX BOUCLES : Circuit breaker plus agressif
     this.circuitBreaker = {
       isOpen: false,
       failureCount: 0,
       lastFailureTime: null,
-      threshold: 3, // Ouvrir après 3 échecs
-      timeout: 30000 // 30 secondes avant de réessayer
+      threshold: 2, // Réduit de 3 à 2
+      timeout: 60000 // Augmenté à 1 minute
     };
     
-    // FIX CRITIQUE 2: Limitation des appels simultanés
+    // HOT-FIX LIMITE : Réduction drastique des requêtes simultanées  
     this.activeRequests = new Set();
-    this.maxConcurrentRequests = 3;
+    this.maxConcurrentRequests = 2; // Réduit de 3 à 2
     
-    // FIX CRITIQUE 3: Cache des résultats pour éviter les appels répétés
+    // HOT-FIX CACHE : Cache plus long pour éviter les requêtes
     this.cache = new Map();
-    this.cacheTimeout = 60000; // 1 minute
+    this.cacheTimeout = 300000; // Augmenté à 5 minutes
+    
+    // SAFE MODE : Vérification du mode sécurité
+    this.safeMode = (import.meta?.env?.VITE_SAFE_MODE ?? process.env?.REACT_APP_SAFE_MODE) === "true";
+  }
+
+  // HOT-FIX CIRCUIT BREAKER : Plus strict
+  isCircuitBreakerOpen() {
+    if (!this.circuitBreaker?.isOpen) return false;
+    
+    if (Date.now() - this.circuitBreaker?.lastFailureTime > this.circuitBreaker?.timeout) {
+      console.log('[MarketDataService] 🔄 Circuit breaker: Tentative de récupération après timeout');
+      this.circuitBreaker.isOpen = false;
+      this.circuitBreaker.failureCount = 0;
+      return false;
+    }
+    
+    return true;
+  }
+
+  // HOT-FIX ÉCHECS : Enregistrement strict
+  recordFailure() {
+    this.circuitBreaker.failureCount++;
+    this.circuitBreaker.lastFailureTime = Date.now();
+    
+    if (this.circuitBreaker?.failureCount >= this.circuitBreaker?.threshold) {
+      this.circuitBreaker.isOpen = true;
+      console.log('[MarketDataService] 🚨 Circuit breaker ouvert IMMÉDIATEMENT après', this.circuitBreaker?.failureCount, 'échecs');
+    }
+  }
+
+  // HOT-FIX QUERY : Timeout plus strict, SANS retry
+  async queryWithTimeout(queryFunction, timeoutMs = this.queryTimeout, retryCount = 0) {
+    // Mode sécurité
+    if (this.safeMode) {
+      console.log('[MarketDataService] 🛡️ Mode sécurité - query bloquée');
+      throw new Error('Mode sécurité activé - requêtes désactivées');
+    }
+    
+    // Circuit breaker
+    if (this.isCircuitBreakerOpen()) {
+      throw new Error('Circuit breaker ouvert - service indisponible');
+    }
+    
+    // Limite de concurrence STRICTE
+    if (this.activeRequests?.size >= this.maxConcurrentRequests) {
+      console.log('[MarketDataService] ⏸️ Limite de requêtes ATTEINTE - rejet immédiat');
+      throw new Error('Trop de requêtes simultanées');
+    }
+    
+    const requestKey = `query_${Date.now()}_${Math.random()}`;
+    this.activeRequests?.add(requestKey);
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller?.abort(), timeoutMs);
+      
+      const result = await Promise.race([
+        queryFunction(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Query timeout (${timeoutMs}ms)`)), timeoutMs)
+        )
+      ]);
+      
+      clearTimeout(timeoutId);
+      
+      // Succès - réinitialiser circuit breaker
+      this.circuitBreaker.failureCount = Math.max(0, this.circuitBreaker?.failureCount - 1);
+      
+      return result;
+    } catch (error) {
+      console.warn(`[MarketDataService] Query failed:`, error?.message);
+      this.recordFailure();
+      
+      // PAS DE RETRY - éviter les boucles selon le plan français
+      throw error;
+    } finally {
+      this.activeRequests?.delete(requestKey);
+    }
+  }
+
+  // HOT-FIX MARKET DATA : Simplifié pour éviter les cascades Google Finance
+  async getMarketData(symbols = [], preferredSource = 'auto') {
+    const cacheKey = `marketData_${symbols?.join(',')}_${preferredSource}`;
+    
+    // Cache PRIORITAIRE
+    const cachedResult = this.getCachedResult(cacheKey);
+    if (cachedResult) {
+      console.log('[MarketDataService] 📦 Utilisation cache pour éviter appels');
+      return cachedResult;
+    }
+    
+    // Mode sécurité
+    if (this.safeMode) {
+      return {
+        data: [],
+        message: 'Mode sécurité activé - données désactivées',
+        dataSource: 'safe_mode',
+        error: 'Safe mode protection active'
+      };
+    }
+    
+    // Circuit breaker
+    if (this.isCircuitBreakerOpen()) {
+      console.log('[MarketDataService] ⚡ Circuit breaker ouvert');
+      return {
+        data: [],
+        message: 'Service temporairement indisponible',
+        dataSource: 'circuit_breaker',
+        error: 'Circuit breaker protection active'
+      };
+    }
+    
+    try {
+      // SIMPLIFICATION : Pas de freshness check pour éviter les cascades
+      let data = [];
+      
+      try {
+        // Tentative unique avec timeout court
+        const fallbackResult = await this.queryWithTimeout(
+          () => supabase?.from('market_data')
+            ?.select(`close_price, timestamp, asset:assets!inner (symbol, name)`)
+            ?.order('timestamp', { ascending: false })
+            ?.limit(3), // LIMITE DRASTIQUE
+          3000 // Timeout réduit
+        );
+        
+        if (fallbackResult?.data?.length) {
+          data = fallbackResult?.data?.map(item => ({
+            id: item?.asset?.id || Math.random(),
+            symbol: item?.asset?.symbol,
+            name: item?.asset?.name,
+            price: item?.close_price,
+            timestamp: item?.timestamp
+          }));
+        }
+      } catch (dataError) {
+        console.log('[MarketDataService] ⚠️ Query failed, returning empty:', dataError?.message);
+        data = [];
+      }
+      
+      const result = {
+        data: data || [],
+        dataSource: 'database_simple',
+        lastUpdate: new Date()?.toISOString(),
+        totalSymbols: data?.length || 0,
+        queryOptimized: true,
+        circuitBreakerStatus: 'closed',
+        hotFixApplied: true
+      };
+      
+      // Cache le résultat pour 5 minutes
+      this.setCachedResult(cacheKey, result);
+      
+      return result;
+
+    } catch (error) {
+      console.error('[MarketDataService] Service error:', error?.message);
+      this.recordFailure();
+      
+      return {
+        data: [],
+        error: `Service error: ${error?.message}`,
+        dataSource: 'error',
+        timeout: true,
+        circuitBreakerStatus: this.circuitBreaker?.isOpen ? 'open' : 'closed',
+        suggestion: 'Service temporairement indisponible selon plan de réparation'
+      };
+    }
+  }
+
+  // HOT-FIX SYNC : Désactivé pour éviter les cascades Google Finance
+  async syncFromSource(source, symbols = []) {
+    if (this.safeMode) {
+      throw new Error('Mode sécurité - sync désactivé');
+    }
+    
+    if (this.isCircuitBreakerOpen()) {
+      throw new Error('Circuit breaker ouvert - sync bloqué');
+    }
+    
+    console.log(`[MarketDataService] ⚠️ Sync désactivé selon plan français pour éviter cascades`);
+    return { 
+      success: false, 
+      message: 'Sync désactivé pour éviter les boucles selon hot-fix',
+      hotFixApplied: true 
+    };
   }
 
   // FIX CRITIQUE 4: Vérification du circuit breaker
@@ -933,6 +1119,142 @@ export class MarketDataService {
       ];
     }
   }
+
+  // HOT-FIX SERVICE STATUS : Ajout status du mode sécurité
+  getServiceStatus() {
+    return {
+      safeMode: this.safeMode,
+      circuitBreaker: {
+        isOpen: this.circuitBreaker?.isOpen,
+        failureCount: this.circuitBreaker?.failureCount,
+        lastFailureTime: this.circuitBreaker?.lastFailureTime
+      },
+      activeRequests: this.activeRequests?.size,
+      cacheSize: this.cache?.size,
+      isHealthy: !this.circuitBreaker?.isOpen && this.activeRequests?.size < this.maxConcurrentRequests && !this.safeMode,
+      hotFixStatus: 'APPLIED'
+    };
+  }
+
+  // HOT-FIX CHART DATA : Simplifié sans Google Finance sync
+  async getChartData(symbol, days = 1, source = 'auto') {
+    if (!symbol) throw new Error('Symbol required');
+    
+    if (this.safeMode) {
+      return {
+        data: [],
+        message: 'Mode sécurité - chart data désactivé',
+        symbol,
+        dataSource: 'safe_mode'
+      };
+    }
+    
+    try {
+      // Pas de Google Finance - direct database avec timeout strict
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const { data, error } = await this.queryWithTimeout(
+        () => supabase?.from('market_data')?.select(`
+            timestamp,
+            close_price,
+            volume,
+            asset:assets!inner (symbol)
+          `)?.eq('assets.symbol', symbol)
+          ?.gte('timestamp', startDate?.toISOString())
+          ?.order('timestamp', { ascending: true })
+          ?.limit(20), // LIMITE DRASTIQUE
+        4000 // Timeout strict
+      );
+
+      if (error) throw error;
+
+      return {
+        data: this.formatChartData(data || []),
+        symbol,
+        dataSource: 'database_only',
+        totalPoints: data?.length || 0,
+        hotFixApplied: true
+      };
+
+    } catch (error) {
+      console.error('Chart data error:', error?.message);
+      return {
+        data: [],
+        message: `Chart data error: ${error?.message}`,
+        symbol,
+        error: error?.message,
+        timeout: true,
+        hotFixApplied: true
+      };
+    }
+  }
+
+  // HOT-FIX MARKET STATUS : Fallback simple
+  async getMarketStatus() {
+    if (this.safeMode) {
+      return {
+        isOpen: false,
+        status: 'SAFE_MODE',
+        source: 'safe_mode'
+      };
+    }
+    
+    // Fallback simple sans API calls
+    const now = new Date();
+    const hour = now?.getHours();
+    const isWeekend = now?.getDay() === 0 || now?.getDay() === 6;
+    
+    return {
+      isOpen: !isWeekend && hour >= 9 && hour < 16,
+      status: isWeekend ? 'CLOSED' : (hour >= 9 && hour < 16 ? 'OPEN' : 'CLOSED'),
+      timezone: 'UTC',
+      source: 'fallback_only',
+      hotFixApplied: true
+    };
+  }
+
+  // HOT-FIX SYMBOLS : Limite stricte
+  async getAvailableSymbols() {
+    if (this.safeMode) return [];
+    
+    try {
+      const { data, error } = await this.queryWithTimeout(
+        () => supabase?.from('assets')
+          ?.select('symbol, name')
+          ?.eq('is_active', true)
+          ?.limit(10), // LIMITE DRASTIQUE
+        3000
+      );
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // HOT-FIX SEARCH : Limite stricte
+  async searchSymbols(query) {
+    if (!query || query?.length < 2 || this.safeMode) return [];
+    
+    try {
+      const { data, error } = await this.queryWithTimeout(
+        () => supabase?.from('assets')
+          ?.select('symbol, name')
+          ?.eq('is_active', true)
+          ?.ilike('symbol', `%${query}%`)
+          ?.limit(5), // LIMITE DRASTIQUE
+        2000
+      );
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // ... keep other existing methods but add safeMode checks ...
 }
 
 // Singleton export

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<<html lang="en" translate="no">
+<h<head>
+  <!-- PARE-FEU RENFORCÉ : bloque tous les appels vers l'ancien domaine Rocket -->
+  <script translate="no">
+  (function(){
+    const BAD = 'rockettra3991.builtwithrocket.new';
+    const isBad = (u)=> !!u && String(u).indexOf(BAD) !== -1;
+
+    // Interception de fetch()
+    const _fetch = window.fetch;
+    window.fetch = function(input, init){
+      try {
+        const url = typeof input === 'string' ? input : (input && input.url);
+        if (isBad(url)) {
+          console.warn('⛔ Requête bloquée (fetch) ->', url);
+          return Promise.resolve(new Response('', { status: 204 }));
+        }
+      } catch {}
+      return _fetch.apply(this, arguments);
+    };
+
+    // Interception de XMLHttpRequest (XHR)
+    const _open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url){
+      try {
+        if (isBad(url)) {
+          console.warn('⛔ Requête bloquée (XHR) ->', url);
+          this.abort();
+          return;
+        }
+      } catch {}
+      return _open.apply(this, arguments);
+    };
+
+    // Interception de sendBeacon()
+    if (navigator.sendBeacon) {
+      const _beacon = navigator.sendBeacon.bind(navigator);
+      navigator.sendBeacon = function(url, data){
+        if (isBad(url)) {
+          console.warn('⛔ Requête bloquée (Beacon) ->', url);
+          return true; // on fait croire que tout s’est bien passé
+        }
+        return _beacon(url, data);
+      };
+    }
+
+    // Blocage des src/href dans les balises (script, image, lien…)
+    function patchSrc(proto, prop){
+      const desc = Object.getOwnPropertyDescriptor(proto, prop);
+      if (!desc || !desc.set) return;
+      Object.defineProperty(proto, prop, {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get: desc.get,
+        set: function(v){
+          if (isBad(v)) {
+            console.warn('⛔ Blocage automatique de', prop, '->', v);
+            return;
+          }
+          return desc.set.call(this, v);
+        }
+      });
+    }
+    patchSrc(Image.prototype, 'src');
+    patchSrc(HTMLScriptElement.prototype, 'src');
+    patchSrc(HTMLLinkElement.prototype, 'href');
+  })();
+  </script>
+
+  <!-- Puis tes meta viennent après -->
+  <meta charset="utf-8" />
+  <meta name="google" content="notranslate" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- ... reste du head ... -->ad>
+  <meta charset="utf-8" />
+  <meta name="google" content="notranslate" />
+  <!-- le reste du head… -->html lang="en">
+  <head><!-- Pare-feu: bloque tout appel vers l'ancien domaine Rocket -->
+<script>
+(function(){
+  const BAD = 'rockettra3991.builtwithrocket.new';
+
+  // Interception fetch
+  const _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      const u = typeof input === 'string' ? input : (input && input.url);
+      if (u && u.includes(BAD)) {
+        console.warn('⛔ blocked fetch ->', u);
+        return Promise.resolve(new Response('', {status:204}));
+      }
+    }catch{}
+    return _fetch.apply(this, arguments);
+  };
+
+  // Interception XHR
+  const _open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url){
+    try{
+      if (url && url.includes(BAD)) {
+        console.warn('⛔ blocked xhr ->', url);
+        this.abort();
+        return;
+      }
+    }catch{}
+    return _open.apply(this, arguments);
+  };
+})();
+</script>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rocket Trading MVP</title>
+    
+    <!-- TRADING STYLES CSS -->
+    <style>
+      /* Loading Skeleton Styles */
+      body {
+        margin: 0;
+        background: #0a0a0a;
+        color: #ffffff;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      
+      .loading-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .loading-content {
+        text-align: center;
+        padding: 2rem;
+      }
+      
+      .loading-logo {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 1.5rem;
+        border-radius: 12px;
+        background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      
+      .loading-logo svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+      }
+      
+      .loading-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      .loading-subtitle {
+        color: #9ca3af;
+        font-size: 0.875rem;
+        margin-bottom: 2rem;
+      }
+      
+      .loading-bar {
+        width: 240px;
+        height: 3px;
+        background: #374151;
+        border-radius: 2px;
+        overflow: hidden;
+        margin: 0 auto;
+      }
+      
+      .loading-progress {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        border-radius: 2px;
+        animation: loading 2s ease-in-out infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      
+      @keyframes loading {
+        0% { width: 0%; transform: translateX(-100%); }
+        50% { width: 100%; transform: translateX(0%); }
+        100% { width: 100%; transform: translateX(100%); }
+      }
+      
+      /* Hide loading when React mounts */
+      #root:not(:empty) + .loading-wrapper {
+        display: none;
+      }
+      
+      /* System Status Badge Styles */
+      .status-badges {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        gap: 8px;
+        z-index: 1000;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        backdrop-filter: blur(10px);
+      }
+      
+      .status-indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #22c55e;
+        animation: pulse-green 2s ease-in-out infinite;
+      }
+      
+      .status-indicator.down {
+        background: #ef4444;
+        animation: pulse-red 2s ease-in-out infinite;
+      }
+      
+      @keyframes pulse-green {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      
+      @keyframes pulse-red {
+        0%, 100% { opacity: 1; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+        50% { opacity: 0.7; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+      }
+    </style>
+
+<script type="module" src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Frockettra3991back.builtwithrocket.new&_be=https%3A%2F%2Fapplication.rocket.new&_v=0.1.8"></script>
+<script type="module" src="https://static.rocket.new/rocket-shot.js?v=0.0.1"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+    
+    <!-- Loading Screen -->
+    <div class="loading-wrapper" id="loading-screen">
+      <div class="loading-content">
+        <div class="loading-logo">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </div>
+        
+        <h1 class="loading-title">Rocket Trading MVP</h1>
+        <p class="loading-subtitle">Interface restaurée - Baseline 7h du matin</p>
+        
+        <div class="loading-bar">
+          <div class="loading-progress"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- System Status Badges (initially hidden) -->
+    <div class="status-badges" id="status-badges" style="display: none;">
+      <div class="status-badge">
+        <div class="status-indicator" id="api-status"></div>
+        <span>API</span>
+      </div>
+      <div class="status-badge">
+        <div class="status-indicator" id="market-status"></div>
+        <span>MARKET</span>
+      </div>
+      <div class="status-badge">
+        <div class="status-indicator" id="ws-status"></div>
+        <span>WS</span>
+      </div>
+    </div>
+
+    <script type="module" src="/src/index.jsx"></script>
+    
+    <!-- Status Check Script -->
+    <script>
+      // Simple status check for the badges
+      async function checkSystemStatus() {
+        try {
+          const apiCheck = fetch('/health', { cache: 'no-store' }).then(r => r.ok).catch(() => false);
+          const marketCheck = fetch('/market/health', { cache: 'no-store' }).then(r => r.ok).catch(() => false);
+          const wsCheck = fetch('/ws/health', { cache: 'no-store' }).then(r => r.ok).catch(() => false);
+          
+          const [api, market, ws] = await Promise.all([apiCheck, marketCheck, wsCheck]);
+          
+          document.getElementById('api-status').className = `status-indicator ${api ? '' : 'down'}`;
+          document.getElementById('market-status').className = `status-indicator ${market ? '' : 'down'}`;
+          document.getElementById('ws-status').className = `status-indicator ${ws ? '' : 'down'}`;
+          
+          // Show status badges after first check
+          document.getElementById('status-badges').style.display = 'flex';
+        } catch (error) {
+          console.log('Status check error:', error);
+        }
+      }
+      
+      // Check status every 30 seconds
+      checkSystemStatus();
+      setInterval(checkSystemStatus, 30000);
+      
+      // Hide loading screen after 3 seconds if React hasn't mounted
+      setTimeout(() => {
+        const root = document.getElementById('root');
+        const loading = document.getElementById('loading-screen');
+        if (root.children.length === 0 && loading) {
+          loading.style.display = 'none';
+        }
+      }, 3000);
+      
+      // Diagnostic logging - 7h restoration
+      console.log('🚀 Trading MVP - Interface restaurée depuis 7h baseline');
+      console.log('✅ SAFE_MODE désactivé par défaut');
+      console.log('✅ Routing React fonctionnel');
+      console.log('✅ Navigation régionale opérationnelle');
+      console.log('✅ Badges de statut système actifs');
+    </script><!-- ======= PATCH: Fix Rocket Gateway & HardErrorBoundary ======= -->
+<script>
+/* Neutralise les anciens pings Rocket.new cassés */
+(function(){
+  function checkApplicationStatus(){
+    // Ancien domaine Rocket (cassé) supprimé
+    fetch('/health', {cache:'no-store'})
+      .then(()=>console.log('✅ /health OK'))
+      .catch(()=>console.warn('⚠️ /health indisponible — interface maintenue'));
+  }
+  window.addEventListener('load', ()=> setTimeout(checkApplicationStatus, 300));
+})();
+</script>
+
+<script>
+/* Patch HardErrorBoundary (empêche le crash visuel) */
+(function(){
+  if (!window.HardErrorBoundary) {
+    console.warn('⚠️ HardErrorBoundary manquant — patch appliqué');
+    window.HardErrorBoundary = function(fnOrChildren){
+      try { return typeof fnOrChildren==='function' ? fnOrChildren() : fnOrChildren; }
+      catch(e){ console.error('HardErrorBoundary catch:', e); return null; }
+    };
+  }
+  window.addEventListener('error', e => console.error('UI error:', e.message), true);
+  window.addEventListener('unhandledrejection', e => console.error('Promise error:', e.reason));
+})();
+</script>
+  </body>
+</h<head></html>

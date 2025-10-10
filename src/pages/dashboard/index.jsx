@@ -491,20 +491,20 @@ export default function Dashboard() {
     console.log('[Dashboard] 🛑 Arrêt de tous les timers pour prévenir les boucles');
     
     // Arrêter tous les intervals
-    activeIntervals.current.forEach(intervalId => {
+    activeIntervals?.current?.forEach(intervalId => {
       clearInterval(intervalId);
     });
-    activeIntervals.current.clear();
+    activeIntervals?.current?.clear();
     
     // Arrêter tous les timeouts
-    activeTimeouts.current.forEach(timeoutId => {
+    activeTimeouts?.current?.forEach(timeoutId => {
       clearTimeout(timeoutId);
     });
-    activeTimeouts.current.clear();
+    activeTimeouts?.current?.clear();
     
     // Arrêter le timer de stabilité
-    if (stabilityTimer.current) {
-      clearTimeout(stabilityTimer.current);
+    if (stabilityTimer?.current) {
+      clearTimeout(stabilityTimer?.current);
       stabilityTimer.current = null;
     }
   }, []);
@@ -526,7 +526,7 @@ export default function Dashboard() {
         setApiCallsCount(0);
         console.log('[Dashboard] 🔄 Circuit breaker réinitialisé');
       }, 30000);
-      activeTimeouts.current.add(timeoutId);
+      activeTimeouts?.current?.add(timeoutId);
       
       return null;
     }
@@ -566,18 +566,18 @@ export default function Dashboard() {
         { step: 4, delay: 700, message: 'Finalisation système pérenne' }
       ];
       
-      descentSteps.forEach(({ step, delay, message }) => {
+      descentSteps?.forEach(({ step, delay, message }) => {
         const timeoutId = setTimeout(() => {
           console.log(`[Dashboard] 🔽 Étape ${step}/4: ${message}`);
           
-          if (step === descentSteps.length) {
+          if (step === descentSteps?.length) {
             setResilienceDescended(true);
             setIsStable(true);
             console.log('[Dashboard] ✅ Système de résilience pérenne déployé avec succès');
           }
         }, delay);
         
-        activeTimeouts.current.add(timeoutId);
+        activeTimeouts?.current?.add(timeoutId);
       });
       
     } catch (error) {
@@ -623,7 +623,7 @@ export default function Dashboard() {
       const timeoutId = setTimeout(() => {
         setLoading(false);
       }, 1000);
-      activeTimeouts.current.add(timeoutId);
+      activeTimeouts?.current?.add(timeoutId);
     }
   }, [isStable, loading, safeApiCall, defaultSymbols]);
 
@@ -645,7 +645,7 @@ export default function Dashboard() {
         activateResilienceSystem();
       }, 500);
       
-      activeTimeouts.current.add(timeoutId);
+      activeTimeouts?.current?.add(timeoutId);
       
       return () => clearTimeout(timeoutId);
     }
@@ -664,11 +664,11 @@ export default function Dashboard() {
         }
       }, 120000); // 2 minutes
       
-      activeIntervals.current.add(intervalId);
+      activeIntervals?.current?.add(intervalId);
       
       return () => {
         clearInterval(intervalId);
-        activeIntervals.current.delete(intervalId);
+        activeIntervals?.current?.delete(intervalId);
       };
     }
   }, [resilienceDescended, isStable, authLoading, debouncedLoadData, circuitBreakerOpen]);
@@ -683,8 +683,8 @@ export default function Dashboard() {
     }
     
     return () => {
-      if (stabilityTimer.current) {
-        clearTimeout(stabilityTimer.current);
+      if (stabilityTimer?.current) {
+        clearTimeout(stabilityTimer?.current);
         stabilityTimer.current = null;
       }
     };
@@ -705,11 +705,11 @@ export default function Dashboard() {
       console.log('[Dashboard] 🔄 Compteur API calls réinitialisé');
     }, 60000); // Toutes les minutes
     
-    activeIntervals.current.add(intervalId);
+    activeIntervals?.current?.add(intervalId);
     
     return () => {
       clearInterval(intervalId);
-      activeIntervals.current.delete(intervalId);
+      activeIntervals?.current?.delete(intervalId);
     };
   }, []);
 
@@ -758,7 +758,7 @@ export default function Dashboard() {
 
   // Force render after 15 seconds if still loading
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    let timeout = setTimeout(() => {
       if (loading) {
         console.log('🚨 Dashboard: Forcing render after 15s loading timeout');
         setForceRender(true);
@@ -859,6 +859,53 @@ export default function Dashboard() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // ENHANCED FIX: Add missing function definitions
+  const handleIBKRConfigSave = useCallback(async (configData) => {
+    try {
+      console.log('[Dashboard] 💾 Sauvegarde configuration IBKR:', configData);
+      
+      // Update the IBKR connection state
+      setIBKRConnection(configData);
+      
+      // Optionally refresh system health to reflect new IBKR status
+      const healthData = await safeApiCall(() => systemHealthService?.getSystemHealth());
+      if (healthData) {
+        setSystemHealth(prev => ({
+          ...prev,
+          ...healthData,
+          ibkr: configData
+        }));
+      }
+      
+      console.log('[Dashboard] ✅ Configuration IBKR sauvegardée avec succès');
+    } catch (error) {
+      console.error('[Dashboard] ❌ Erreur sauvegarde configuration IBKR:', error?.message);
+    }
+  }, [safeApiCall]);
+
+  const handleFeatureNavigation = useCallback((path) => {
+    try {
+      console.log('[Dashboard] 🧭 Navigation vers:', path);
+      navigate(path);
+    } catch (error) {
+      console.error('[Dashboard] ❌ Erreur navigation:', error?.message);
+    }
+  }, [navigate]);
+
+  const handleIBKRConnectionChange = useCallback((connectionData) => {
+    try {
+      console.log('[Dashboard] 🔄 Changement connexion IBKR:', connectionData);
+      setIBKRConnection(connectionData);
+      
+      // Optionally trigger a health refresh
+      if (isStable && !loading) {
+        debouncedLoadData();
+      }
+    } catch (error) {
+      console.error('[Dashboard] ❌ Erreur changement connexion IBKR:', error?.message);
+    }
+  }, [isStable, loading, debouncedLoadData]);
 
   if (authLoading || (!resilienceDescended && !resilienceError)) {
     return (
@@ -977,7 +1024,7 @@ export default function Dashboard() {
               
               {lastSuccessfulLoad && (
                 <div className="text-xs text-gray-500">
-                  Dernier succès: {new Date(lastSuccessfulLoad).toLocaleTimeString()}
+                  Dernier succès: {new Date(lastSuccessfulLoad)?.toLocaleTimeString()}
                 </div>
               )}
             </div>
