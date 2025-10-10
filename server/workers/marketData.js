@@ -1,0 +1,1 @@
+setInterval(()=>console.log("[market-data] alive", new Date()?.toISOString()), 10000);

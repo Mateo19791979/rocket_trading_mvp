@@ -28,17 +28,9 @@ app.use(cors({
       icon: Container,
       description: 'Labels Docker Compose pour Traefik',
       snippet: `labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.api.rule=Host(\`api.trading-mvp.com\`)"
-  - "traefik.http.routers.api.entrypoints=websecure"
-  - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-  - "traefik.http.services.api.loadbalancer.server.port=8080"
+  - "traefik.enable=true" -"traefik.http.routers.api.rule=Host(\`api.trading-mvp.com\`)" -"traefik.http.routers.api.entrypoints=websecure" -"traefik.http.routers.api.tls.certresolver=letsencrypt" -"traefik.http.services.api.loadbalancer.server.port=8080"
   # Sécurité (headers)
-  - "traefik.http.middlewares.security.headers.stsSeconds=31536000"
-  - "traefik.http.middlewares.security.headers.stsIncludeSubdomains=true"
-  - "traefik.http.middlewares.security.headers.forceSTSHeader=true"
-  - "traefik.http.middlewares.security.headers.contentTypeNosniff=true"
-  - "traefik.http.routers.api.middlewares=security@docker"`
+  - "traefik.http.middlewares.security.headers.stsSeconds=31536000" -"traefik.http.middlewares.security.headers.stsIncludeSubdomains=true" -"traefik.http.middlewares.security.headers.forceSTSHeader=true" -"traefik.http.middlewares.security.headers.contentTypeNosniff=true" -"traefik.http.routers.api.middlewares=security@docker"`
     },
     {
       id: 'docker-network',

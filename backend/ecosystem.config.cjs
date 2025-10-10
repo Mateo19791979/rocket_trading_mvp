@@ -1,41 +1,20 @@
 module.exports = {
   apps: [
     {
-      name: "trading-mvp-api",
-      script: "server.js",
-      cwd: __dirname,
-      instances: 1,
-      exec_mode: "fork",
-      env: {
-        NODE_ENV: "production",
-        PORT: 8080
+      name: 'market-data-processor',
+      script: 'services/MarketDataProcessor.js',
+      env: { 
+        NODE_ENV: 'production',
+        IB_GATEWAY_HOST: '127.0.0.1',
+        IB_GATEWAY_PORT: '4002',
+        IB_CLIENT_ID: '77',
+        IB_IS_PAPER: 'true',
+        SUBSCRIBE_SYMBOLS: 'AAPL,MSFT,SPY,EUR.USD,ESZ5',
+        QUOTES_WS_PORT: '8083'
       },
-      env_production: {
-        NODE_ENV: "production",
-        PORT: 8080
-      },
-      // Logging
-      log_file: "./logs/combined.log",
-      out_file: "./logs/out.log",
-      error_file: "./logs/error.log",
-      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
-      
-      // Process management
-      max_memory_restart: "500M",
-      min_uptime: "10s",
-      max_restarts: 5,
-      
-      // Health monitoring
-      health_check_grace_period: 3000,
-      health_check_fatal_exceptions: true,
-      
-      // Auto restart on file changes (disable in production)
+      max_restarts: 10,
+      exp_backoff_restart_delay: 5000,
       watch: false,
-      ignore_watch: ["node_modules", "logs"],
-      
-      // Advanced options
-      kill_timeout: 3000,
-      restart_delay: 1000
     }
   ],
   

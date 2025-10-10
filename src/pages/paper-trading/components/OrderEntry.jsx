@@ -3,131 +3,163 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
+import paperTradingSecurityService from '../../../services/paperTradingSecurityService';
 
-const OrderEntry = ({ 
-  onPlaceOrder, 
-  selectedSymbol, 
-  currentPrice, 
-  availableSymbols = [],
-  onSymbolChange,
-  disabled = false 
-}) => {
-  const [orderData, setOrderData] = useState({
-    symbol: selectedSymbol || 'AAPL',
-    side: 'buy',
-    quantity: 1,
-    price: currentPrice || 0,
-    type: 'market'
-  });
-
+export default function OrderEntry({ onOrderComplete }) {
+  const [selectedAsset, setSelectedAsset] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [price, setPrice] = useState('');
+  const [orderType, setOrderType] = useState('market');
+  const [side, setSide] = useState('buy');
+  const [assets, setAssets] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+  const [brokerMode, setBrokerMode] = useState('paper');
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState(null);
 
-  // Update symbol when prop changes
+  // Check broker mode on component mount
   useEffect(() => {
-    if (selectedSymbol && selectedSymbol !== orderData?.symbol) {
-      setOrderData(prev => ({ ...prev, symbol: selectedSymbol }));
-    }
-  }, [selectedSymbol]);
+    checkBrokerMode();
+  }, []);
 
-  // Update price when current price changes
-  useEffect(() => {
-    if (currentPrice && orderData?.type === 'market') {
-      setOrderData(prev => ({ ...prev, price: currentPrice }));
+  const checkBrokerMode = async () => {
+    try {
+      const mode = await paperTradingSecurityService?.getBrokerFlag();
+      setBrokerMode(mode);
+    } catch (error) {
+      console.error('Error checking broker mode:', error);
+      setBrokerMode('paper'); // Default to paper for safety
     }
-  }, [currentPrice, orderData?.type]);
+  };
 
-  const validateOrder = () => {
-    const newErrors = {};
-    
-    if (!orderData?.symbol) {
-      newErrors.symbol = 'Symbol is required';
+  const handleInputChange = (field, value) => {
+    switch(field) {
+      case 'symbol':
+        setSelectedAsset(value);
+        break;
+      case 'side':
+        setSide(value);
+        break;
+      case 'type':
+        setOrderType(value);
+        break;
+      case 'quantity':
+        setQuantity(value);
+        break;
+      case 'price':
+        setPrice(value);
+        break;
+      default:
+        break;
     }
     
-    if (!orderData?.quantity || orderData?.quantity <= 0) {
-      newErrors.quantity = 'Quantity must be greater than 0';
+    // Clear error for this field
+    if (errors?.[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
     }
-    
-    if (!orderData?.price || orderData?.price <= 0) {
-      newErrors.price = 'Price must be greater than 0';
-    }
-    
-    if (orderData?.quantity > 10000) {
-      newErrors.quantity = 'Maximum quantity is 10,000';
-    }
-    
-    if (orderData?.price > 100000) {
-      newErrors.price = 'Maximum price is 100,000';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors)?.length === 0;
+  };
+
+  const getTotalValue = () => {
+    const qty = parseFloat(quantity) || 0;
+    const prc = orderType === 'market' ? (currentPrice || 0) : (parseFloat(price) || 0);
+    return qty * prc;
+  };
+
+  const symbolOptions = assets?.map(asset => ({
+    value: asset?.id,
+    label: asset?.symbol
+  }));
+
+  const disabled = isLoading;
+  const loading = isLoading;
+
+  const orderData = {
+    symbol: assets?.find(a => a?.id === selectedAsset)?.symbol || '',
+    side: side,
+    type: orderType,
+    quantity: parseInt(quantity) || 0,
+    price: parseFloat(price) || 0
   };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
     
-    if (!validateOrder() || disabled) return;
-    
-    setLoading(true);
     try {
-      await onPlaceOrder?.(orderData);
+      setIsLoading(true);
+
+      // Check if paper mode is enabled
+      const isPaperMode = await paperTradingSecurityService?.isPaperModeEnabled();
       
-      // Reset form after successful order
-      setOrderData(prev => ({
-        ...prev,
-        quantity: 1,
-        price: currentPrice || prev?.price
-      }));
-      
+      const orderData = {
+        asset_id: selectedAsset,
+        quantity: parseFloat(quantity),
+        order_type: orderType,
+        order_side: side,
+        price: orderType === 'limit' ? parseFloat(price) : null,
+        time_in_force: 'GTC',
+        symbol: assets?.find(a => a?.id === selectedAsset)?.symbol
+      };
+
+      if (!isPaperMode && orderType === 'market') {
+        // Block live trading attempt
+        const blockResult = await paperTradingSecurityService?.blockLiveTrade(
+          orderData,
+          'Tentative d\'ordre en direct bloquée - Mode papier activé'
+        );
+        
+        setMessage(`🚫 ORDRE BLOQUÉ: ${blockResult?.reason}`);
+        setMessageType('error');
+        return;
+      }
+
+      // Execute paper trade
+      const result = await paperTradingSecurityService?.executePaperTrade(orderData);
+
+      if (result?.success) {
+        setMessage('✅ Ordre papier exécuté avec succès (virtuel)');
+        setMessageType('success');
+        
+        // Reset form
+        setQuantity('');
+        setPrice('');
+        setSelectedAsset('');
+        
+        // Refresh data if callback exists
+        if (onOrderComplete) {
+          onOrderComplete();
+        }
+      }
+
     } catch (error) {
-      // Error handling is done in parent component
+      console.error('Error submitting order:', error);
+      setMessage('Erreur lors de la soumission de l\'ordre: ' + error?.message);
+      setMessageType('error');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  const handleInputChange = (field, value) => {
-    setOrderData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear specific error when user starts typing
-    if (errors?.[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-    
-    // Update parent component if symbol changes
-    if (field === 'symbol' && onSymbolChange) {
-      onSymbolChange?.(value);
-    }
-  };
-
-  const getTotalValue = () => {
-    return (orderData?.quantity || 0) * (orderData?.price || 0);
-  };
-
-  const symbolOptions = availableSymbols?.map(symbol => ({
-    value: symbol,
-    label: symbol
-  })) || [
-    { value: 'AAPL', label: 'AAPL' },
-    { value: 'GOOGL', label: 'GOOGL' },
-    { value: 'MSFT', label: 'MSFT' },
-    { value: 'TSLA', label: 'TSLA' }
-  ];
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6">
+    <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
         <TrendingUp className="w-5 h-5 mr-2 text-primary" />
         Place Order
       </h3>
-      {disabled && (
-        <div className="mb-4 p-3 bg-muted/50 border border-border rounded-lg">
-          <p className="text-sm text-muted-foreground">
-            Please sign in to place orders
-          </p>
+      {/* Broker Mode Indicator */}
+      <div className="mb-4">
+        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+          brokerMode === 'paper' ? 'bg-blue-100 text-blue-800' 
+            : brokerMode === 'live' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          Mode: {brokerMode?.toUpperCase()}
+          {brokerMode !== 'live' && ' (Aucun ordre réel)'}
         </div>
-      )}
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Symbol Selection */}
         <div>
@@ -161,7 +193,7 @@ const OrderEntry = ({
               onClick={() => handleInputChange('side', 'buy')}
               disabled={disabled}
               className={`p-3 rounded-lg border transition-colors flex items-center justify-center ${
-                orderData?.side === 'buy' ?'bg-success/10 border-success text-success' :'bg-card border-border text-muted-foreground hover:text-foreground'
+                orderData?.side === 'buy' ? 'bg-success/10 border-success text-success' : 'bg-card border-border text-muted-foreground hover:text-foreground'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <TrendingUp className="w-4 h-4 mr-1" />
@@ -172,7 +204,7 @@ const OrderEntry = ({
               onClick={() => handleInputChange('side', 'sell')}
               disabled={disabled}
               className={`p-3 rounded-lg border transition-colors flex items-center justify-center ${
-                orderData?.side === 'sell' ?'bg-destructive/10 border-destructive text-destructive' :'bg-card border-border text-muted-foreground hover:text-foreground'
+                orderData?.side === 'sell' ? 'bg-destructive/10 border-destructive text-destructive' : 'bg-card border-border text-muted-foreground hover:text-foreground'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <TrendingDown className="w-4 h-4 mr-1" />
@@ -192,7 +224,7 @@ const OrderEntry = ({
               onClick={() => handleInputChange('type', 'market')}
               disabled={disabled}
               className={`p-2 rounded-lg border transition-colors text-sm ${
-                orderData?.type === 'market' ?'bg-primary/10 border-primary text-primary' :'bg-card border-border text-muted-foreground hover:text-foreground'
+                orderData?.type === 'market' ? 'bg-primary/10 border-primary text-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Market
@@ -202,7 +234,7 @@ const OrderEntry = ({
               onClick={() => handleInputChange('type', 'limit')}
               disabled={disabled}
               className={`p-2 rounded-lg border transition-colors text-sm ${
-                orderData?.type === 'limit' ?'bg-primary/10 border-primary text-primary' :'bg-card border-border text-muted-foreground hover:text-foreground'
+                orderData?.type === 'limit' ? 'bg-primary/10 border-primary text-primary' : 'bg-card border-border text-muted-foreground hover:text-foreground'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Limit
@@ -277,7 +309,7 @@ const OrderEntry = ({
         <Button
           type="submit"
           className={`w-full ${
-            orderData?.side === 'buy' ?'bg-success hover:bg-success/90' :'bg-destructive hover:bg-destructive/90'
+            orderData?.side === 'buy' ? 'bg-success hover:bg-success/90' : 'bg-destructive hover:bg-destructive/90'
           }`}
           disabled={disabled || loading || Object.keys(errors)?.length > 0}
         >
@@ -286,6 +318,4 @@ const OrderEntry = ({
       </form>
     </div>
   );
-};
-
-export default OrderEntry;
+}

@@ -32,7 +32,6 @@ const DéploiementSécuriséPanel = () => {
         <Rocket className="w-6 h-6 text-green-400" />
         <h2 className="text-2xl font-bold text-white">Déploiement sécurisé</h2>
       </div>
-      
       <div className="space-y-4">
         {déploiementItems?.map((item, index) => (
           <motion.div
@@ -63,7 +62,6 @@ const DéploiementSécuriséPanel = () => {
           </motion.div>
         ))}
       </div>
-
       {/* Pipeline Workflow Visualization */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

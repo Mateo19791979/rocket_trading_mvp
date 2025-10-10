@@ -1,0 +1,82 @@
+providers:
+  - name: SIX
+    kind: [equity]
+    baseUrl: https://api.six.com
+    key: ${SIX_API_KEY}
+    priority: 100
+    markets: [CH, EU]
+    enabled: false
+    timeout: 2500
+    rateLimit: 1000
+    features: [quotes, history, fundamentals]
+    
+  - name: Euronext
+    kind: [equity]
+    baseUrl: https://api.euronext.com
+    key: ${EURONEXT_API_KEY}
+    priority: 90
+    markets: [EU]
+    enabled: false
+    timeout: 2000
+    rateLimit: 1500
+    features: [quotes, history, market-data]
+    
+  - name: Polygon
+    kind: [equity, options, crypto]
+    baseUrl: https://api.polygon.io
+    key: ${POLYGON_API_KEY}
+    priority: 80
+    markets: [US, Global]
+    enabled: true
+    timeout: 1500
+    rateLimit: 5000
+    features: [quotes, history, options, crypto]
+    
+  - name: Finnhub
+    kind: [equity, fx, crypto]
+    baseUrl: https://finnhub.io/api/v1
+    key: ${FINNHUB_API_KEY}
+    priority: 70
+    markets: [Global]
+    enabled: true
+    timeout: 2000
+    rateLimit: 300
+    features: [quotes, history, news, fundamentals]
+    
+  - name: AlphaVantage
+    kind: [equity, fx]
+    baseUrl: https://www.alphavantage.co
+    key: ${ALPHA_VANTAGE_API_KEY}
+    priority: 60
+    markets: [US, Global]
+    enabled: false
+    timeout: 3000
+    rateLimit: 500
+    features: [quotes, history, fundamentals]
+
+# Circuit Breaker Configuration
+circuitBreaker:
+  errorThresholdPercentage: 30
+  openStateTimeoutSeconds: 60
+  requestVolumeThreshold: 20
+  monitoringPeriodSeconds: 300
+
+# Cache Configuration  
+cache:
+  defaultTTLSeconds: 10
+  maxEntries: 10000
+  cleanupIntervalSeconds: 60
+
+# Rate Limiting
+rateLimiting:
+  windowSizeMinutes: 1
+  maxRequestsPerWindow: 60
+  blockDurationMinutes: 5
+
+# Observability
+logging:
+  level: info
+  format: json
+  includeProviderAttribution: true
+  logRequestResponse: false
+  logCircuitBreakerEvents: true

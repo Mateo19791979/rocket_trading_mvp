@@ -168,7 +168,7 @@ export default function FinalVerificationPanel({
           {getVerificationIcon(verificationResults?.promiseCheck)}
           <div className="flex-1">
             <h4 className="text-white font-semibold mb-1">
-              • Be.getAgentsOverview().then(x => afficher les cartes)
+              • Be.getAgentsOverview().then(x =&gt; afficher les cartes)
             </h4>
             <div className="text-sm text-gray-300">
               Test fonctionnel avec promesse et affichage des données

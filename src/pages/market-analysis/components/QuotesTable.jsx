@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellClick }) => {
+const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellClick, onResultCountUpdate }) => {
   const [quotes, setQuotes] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [isLoading, setIsLoading] = useState(true);
@@ -110,38 +110,67 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
   useEffect(() => {
     setIsLoading(true);
     // Simulate API call
-    setTimeout(() => {
-      let filteredQuotes = mockQuotes;
+    const timeoutId = setTimeout(() => {
+      try {
+        let filteredQuotes = mockQuotes;
 
-      // Apply search filter
-      if (searchTerm) {
-        filteredQuotes = filteredQuotes?.filter(quote =>
-          quote?.symbol?.toLowerCase()?.includes(searchTerm?.toLowerCase()) ||
-          quote?.name?.toLowerCase()?.includes(searchTerm?.toLowerCase())
-        );
-      }
-
-      // Apply filters
-      if (filters?.market !== 'all') {
-        filteredQuotes = filteredQuotes?.filter(quote => quote?.market === filters?.market);
-      }
-      if (filters?.sector !== 'all') {
-        filteredQuotes = filteredQuotes?.filter(quote => quote?.sector === filters?.sector);
-      }
-      if (filters?.change !== 'all') {
-        if (filters?.change === 'gainers') {
-          filteredQuotes = filteredQuotes?.filter(quote => quote?.change > 0);
-        } else if (filters?.change === 'losers') {
-          filteredQuotes = filteredQuotes?.filter(quote => quote?.change < 0);
-        } else if (filters?.change === 'unchanged') {
-          filteredQuotes = filteredQuotes?.filter(quote => quote?.change === 0);
+        // Apply search filter
+        if (searchTerm?.trim()) {
+          filteredQuotes = filteredQuotes?.filter(quote =>
+            quote?.symbol?.toLowerCase()?.includes(searchTerm?.toLowerCase()) ||
+            quote?.name?.toLowerCase()?.includes(searchTerm?.toLowerCase())
+          );
         }
-      }
 
-      setQuotes(filteredQuotes);
-      setIsLoading(false);
-    }, 500);
-  }, [searchTerm, filters]);
+        // Apply filters
+        if (filters?.market && filters?.market !== 'all') {
+          filteredQuotes = filteredQuotes?.filter(quote => quote?.market === filters?.market);
+        }
+        if (filters?.sector && filters?.sector !== 'all') {
+          filteredQuotes = filteredQuotes?.filter(quote => quote?.sector === filters?.sector);
+        }
+        if (filters?.change && filters?.change !== 'all') {
+          if (filters?.change === 'gainers') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.change > 0);
+          } else if (filters?.change === 'losers') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.change < 0);
+          } else if (filters?.change === 'unchanged') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.change === 0);
+          }
+        }
+        if (filters?.volume && filters?.volume !== 'all') {
+          if (filters?.volume === 'high') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.volume > 10000000);
+          } else if (filters?.volume === 'medium') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.volume >= 1000000 && quote?.volume <= 10000000);
+          } else if (filters?.volume === 'low') {
+            filteredQuotes = filteredQuotes?.filter(quote => quote?.volume < 1000000);
+          }
+        }
+        if (filters?.priceRange && filters?.priceRange !== 'all') {
+          const [min, max] = filters?.priceRange === '500+' 
+            ? [500, Infinity] 
+            : filters?.priceRange?.split('-')?.map(Number);
+          if (min !== undefined && max !== undefined) {
+            filteredQuotes = filteredQuotes?.filter(quote => 
+              quote?.price >= min && (max === Infinity || quote?.price <= max)
+            );
+          }
+        }
+
+        setQuotes(filteredQuotes);
+        onResultCountUpdate?.(filteredQuotes?.length);
+      } catch (error) {
+        console.error('Error filtering quotes:', error);
+        setQuotes([]);
+        onResultCountUpdate?.(0);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filters, onResultCountUpdate]);
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -151,14 +180,24 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
     setSortConfig({ key, direction });
 
     const sortedQuotes = [...quotes]?.sort((a, b) => {
-      if (a?.[key] < b?.[key]) return direction === 'asc' ? -1 : 1;
-      if (a?.[key] > b?.[key]) return direction === 'asc' ? 1 : -1;
+      const aValue = a?.[key];
+      const bValue = b?.[key];
+      
+      // Handle null/undefined values
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return direction === 'asc' ? 1 : -1;
+      if (bValue == null) return direction === 'asc' ? -1 : 1;
+      
+      // Compare values
+      if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return direction === 'asc' ? 1 : -1;
       return 0;
     });
     setQuotes(sortedQuotes);
   };
 
   const formatPrice = (price) => {
+    if (price == null || isNaN(price)) return 'N/A';
     return new Intl.NumberFormat('fr-CH', {
       style: 'currency',
       currency: 'CHF',
@@ -167,7 +206,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
   };
 
   const formatVolume = (volume) => {
-    if (volume === 0) return '-';
+    if (volume == null || volume === 0) return '-';
     if (volume >= 1000000000) return `${(volume / 1000000000)?.toFixed(1)}B`;
     if (volume >= 1000000) return `${(volume / 1000000)?.toFixed(1)}M`;
     if (volume >= 1000) return `${(volume / 1000)?.toFixed(1)}K`;
@@ -175,7 +214,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
   };
 
   const formatMarketCap = (marketCap) => {
-    if (marketCap === 0) return '-';
+    if (marketCap == null || marketCap === 0) return '-';
     if (marketCap >= 1000000000000) return `${(marketCap / 1000000000000)?.toFixed(2)}T`;
     if (marketCap >= 1000000000) return `${(marketCap / 1000000000)?.toFixed(1)}B`;
     if (marketCap >= 1000000) return `${(marketCap / 1000000)?.toFixed(1)}M`;
@@ -231,6 +270,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
           </div>
         </div>
       </div>
+      
       {/* Desktop Table */}
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full">
@@ -283,22 +323,22 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
           <tbody>
             {quotes?.map((quote, index) => (
               <tr
-                key={quote?.symbol}
+                key={quote?.symbol || index}
                 className="border-t border-border hover:bg-muted/20 transition-trading-fast cursor-pointer"
-                onClick={() => onSymbolSelect(quote)}
+                onClick={() => onSymbolSelect?.(quote)}
               >
                 <td className="p-4">
                   <div className="flex items-center space-x-3">
                     <div>
                       <div className="font-semibold text-foreground font-data">
-                        {quote?.symbol}
+                        {quote?.symbol || 'N/A'}
                       </div>
                       <div className="text-sm text-muted-foreground truncate max-w-32">
-                        {quote?.name}
+                        {quote?.name || 'N/A'}
                       </div>
                     </div>
                     <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
-                      {quote?.market}
+                      {quote?.market || 'N/A'}
                     </span>
                   </div>
                 </td>
@@ -310,19 +350,19 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                 <td className="p-4">
                   <div className="flex items-center space-x-1">
                     <Icon
-                      name={quote?.change >= 0 ? "TrendingUp" : "TrendingDown"}
+                      name={(quote?.change ?? 0) >= 0 ? "TrendingUp" : "TrendingDown"}
                       size={14}
-                      className={quote?.change >= 0 ? "text-success" : "text-error"}
+                      className={(quote?.change ?? 0) >= 0 ? "text-success" : "text-error"}
                     />
                     <span className={`font-semibold font-data ${
-                      quote?.change >= 0 ? "text-success" : "text-error"
+                      (quote?.change ?? 0) >= 0 ? "text-success" : "text-error"
                     }`}>
-                      {quote?.change >= 0 ? '+' : ''}{quote?.change?.toFixed(2)}
+                      {(quote?.change ?? 0) >= 0 ? '+' : ''}{(quote?.change ?? 0)?.toFixed(2)}
                     </span>
                     <span className={`text-sm font-data ${
-                      quote?.change >= 0 ? "text-success" : "text-error"
+                      (quote?.changePercent ?? 0) >= 0 ? "text-success" : "text-error"
                     }`}>
-                      ({quote?.changePercent >= 0 ? '+' : ''}{quote?.changePercent?.toFixed(2)}%)
+                      ({(quote?.changePercent ?? 0) >= 0 ? '+' : ''}{(quote?.changePercent ?? 0)?.toFixed(2)}%)
                     </span>
                   </div>
                 </td>
@@ -343,7 +383,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                       size="sm"
                       onClick={(e) => {
                         e?.stopPropagation();
-                        onBuyClick(quote);
+                        onBuyClick?.(quote);
                       }}
                     >
                       Acheter
@@ -353,7 +393,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                       size="sm"
                       onClick={(e) => {
                         e?.stopPropagation();
-                        onSellClick(quote);
+                        onSellClick?.(quote);
                       }}
                     >
                       Vendre
@@ -365,26 +405,27 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
           </tbody>
         </table>
       </div>
+      
       {/* Mobile Cards */}
       <div className="lg:hidden space-y-4 p-4">
-        {quotes?.map((quote) => (
+        {quotes?.map((quote, index) => (
           <div
-            key={quote?.symbol}
+            key={quote?.symbol || index}
             className="bg-muted/20 rounded-xl p-4 cursor-pointer hover:bg-muted/30 transition-trading-fast"
-            onClick={() => onSymbolSelect(quote)}
+            onClick={() => onSymbolSelect?.(quote)}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div>
                   <div className="font-semibold text-foreground font-data">
-                    {quote?.symbol}
+                    {quote?.symbol || 'N/A'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {quote?.name}
+                    {quote?.name || 'N/A'}
                   </div>
                 </div>
                 <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
-                  {quote?.market}
+                  {quote?.market || 'N/A'}
                 </span>
               </div>
               <div className="text-right">
@@ -392,14 +433,14 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                   {formatPrice(quote?.price)}
                 </div>
                 <div className={`text-sm font-data flex items-center space-x-1 ${
-                  quote?.change >= 0 ? "text-success" : "text-error"
+                  (quote?.changePercent ?? 0) >= 0 ? "text-success" : "text-error"
                 }`}>
                   <Icon
-                    name={quote?.change >= 0 ? "TrendingUp" : "TrendingDown"}
+                    name={(quote?.changePercent ?? 0) >= 0 ? "TrendingUp" : "TrendingDown"}
                     size={12}
                   />
                   <span>
-                    {quote?.change >= 0 ? '+' : ''}{quote?.changePercent?.toFixed(2)}%
+                    {(quote?.changePercent ?? 0) >= 0 ? '+' : ''}{(quote?.changePercent ?? 0)?.toFixed(2)}%
                   </span>
                 </div>
               </div>
@@ -414,7 +455,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                   size="sm"
                   onClick={(e) => {
                     e?.stopPropagation();
-                    onBuyClick(quote);
+                    onBuyClick?.(quote);
                   }}
                 >
                   Acheter
@@ -424,7 +465,7 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
                   size="sm"
                   onClick={(e) => {
                     e?.stopPropagation();
-                    onSellClick(quote);
+                    onSellClick?.(quote);
                   }}
                 >
                   Vendre
@@ -434,7 +475,8 @@ const QuotesTable = ({ searchTerm, filters, onSymbolSelect, onBuyClick, onSellCl
           </div>
         ))}
       </div>
-      {quotes?.length === 0 && (
+      
+      {quotes?.length === 0 && !isLoading && (
         <div className="p-12 text-center">
           <Icon name="Search" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
           <h4 className="text-lg font-semibold text-foreground mb-2">

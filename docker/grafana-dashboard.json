@@ -1,0 +1,470 @@
+{
+    "dashboard": {
+        "title": "\ud83d\ude80 Rocket Trading MVP \u2014 Production Readiness",
+        "tags": [
+            "rocket",
+            "trading",
+            "mvp",
+            "production"
+        ],
+        "timezone": "browser",
+        "schemaVersion": 38,
+        "version": 1,
+        "refresh": "30s",
+        "time": {
+            "from": "now-6h",
+            "to": "now"
+        },
+        "panels": [
+            {
+                "type": "stat",
+                "title": "HTTP p95 latency (ms) /quotes",
+                "id": 1,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 0,
+                    "y": 0
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "1000 * histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket{path=\"/quotes\"}[5m])) by (le))",
+                        "refId": "A",
+                        "legendFormat": "p95 latency"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "center"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "ms",
+                        "decimals": 0,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 700
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 1200
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "stat",
+                "title": "HTTP p99 latency (ms) /quotes",
+                "id": 2,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 6,
+                    "y": 0
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "1000 * histogram_quantile(0.99, sum(rate(http_request_duration_ms_bucket{path=\"/quotes\"}[5m])) by (le))",
+                        "refId": "A",
+                        "legendFormat": "p99 latency"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value",
+                    "graphMode": "area"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "ms",
+                        "decimals": 0,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1000
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 1500
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "stat",
+                "title": "HTTP req/s (all)",
+                "id": 3,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 12,
+                    "y": 0
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "sum(rate(http_request_duration_ms_count[1m]))",
+                        "refId": "A",
+                        "legendFormat": "req/s"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value",
+                    "graphMode": "area"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "reqps",
+                        "decimals": 0,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 200
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 1000
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "gauge",
+                "title": "WS active clients",
+                "id": 4,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 18,
+                    "y": 0
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "ws_active_connections",
+                        "refId": "A",
+                        "legendFormat": "connections"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "min": 0,
+                        "max": 2000,
+                        "unit": "short",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": 0
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 100
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 500
+                                }
+                            ]
+                        }
+                    }
+                },
+                "options": {
+                    "showThresholdLabels": false,
+                    "showThresholdMarkers": true
+                }
+            },
+            {
+                "type": "stat",
+                "title": "WS messages/sec",
+                "id": 5,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 0,
+                    "y": 8
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "sum(rate(ws_messages_total[1m]))",
+                        "refId": "A",
+                        "legendFormat": "msg/s"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "decimals": 0,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1000
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 5000
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 10000
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "stat",
+                "title": "RAG p95 (ms) kb_search",
+                "id": 6,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 6,
+                    "y": 8
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "1000 * histogram_quantile(0.95, sum(rate(kb_search_duration_ms_bucket[5m])) by (le))",
+                        "refId": "A",
+                        "legendFormat": "RAG p95"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "ms",
+                        "decimals": 0,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 900
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 1500
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "stat",
+                "title": "Error rate (HTTP 5xx, %)",
+                "id": 7,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 12,
+                    "y": 8
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "100 * (sum(rate(http_requests_total{code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])))",
+                        "refId": "A",
+                        "legendFormat": "5xx rate"
+                    }
+                ],
+                "options": {
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ]
+                    },
+                    "colorMode": "value"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "decimals": 2,
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 2
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "type": "timeseries",
+                "title": "CPU / Memory (API pod)",
+                "id": 8,
+                "gridPos": {
+                    "h": 8,
+                    "w": 6,
+                    "x": 18,
+                    "y": 8
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${DS_PROMETHEUS}"
+                },
+                "targets": [
+                    {
+                        "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"api.*\"}[5m]))",
+                        "refId": "A",
+                        "legendFormat": "CPU cores/s"
+                    },
+                    {
+                        "expr": "sum(container_memory_working_set_bytes{pod=~\"api.*\"})",
+                        "refId": "B",
+                        "legendFormat": "Memory bytes"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short",
+                        "custom": {
+                            "drawStyle": "line",
+                            "lineInterpolation": "linear",
+                            "barAlignment": 0,
+                            "lineWidth": 1,
+                            "fillOpacity": 10,
+                            "gradientMode": "none",
+                            "spanNulls": false,
+                            "insertNulls": false,
+                            "showPoints": "never",
+                            "pointSize": 5,
+                            "stacking": {
+                                "mode": "none",
+                                "group": "A"
+                            },
+                            "axisPlacement": "auto",
+                            "axisLabel": "",
+                            "scaleDistribution": {
+                                "type": "linear"
+                            },
+                            "hideFrom": {
+                                "legend": false,
+                                "tooltip": false,
+                                "vis": false
+                            },
+                            "thresholdsStyle": {
+                                "mode": "off"
+                            }
+                        }
+                    }
+                },
+                "options": {
+                    "tooltip": {
+                        "mode": "single",
+                        "sort": "none"
+                    },
+                    "legend": {
+                        "displayMode": "visible",
+                        "placement": "bottom"
+                    }
+                }
+            }
+        ]
+    },
+    "folderId": null,
+    "overwrite": true
+}

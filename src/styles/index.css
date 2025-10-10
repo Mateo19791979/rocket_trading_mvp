@@ -1,12 +1,163 @@
+/* Ensure proper scrolling */
+html {
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: Inter;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* ENHANCED: Fix any potential scroll blocking */
 * {
   box-sizing: border-box;
   line-height: normal;
   font-family: inherit;
   margin: unset;
+}
+
+/* ADDED: Specific fixes for knowledge base page scroll issues */
+.knowledge-base-container {
+  min-height: 100vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+/* ENHANCED: Ensure scroll works on all containers */
+.container, .main-content, .page-container {
+  overflow-y: auto;
+  max-height: 100vh;
+}
+
+/* ENHANCED: Better scroll container management */
+.scroll-container {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #64748b #1e293b;
+}
+
+/* Reset any fixed positioning that might block scroll */
+.fixed, .sticky {
+  z-index: 9999;
+}
+
+/* ENHANCED: Improved scrollbar styling for better visibility */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 6px;
+  border: 2px solid #1e293b;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ENHANCED: Firefox scrollbar with dark theme */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #64748b #1e293b;
+}
+
+/* ADDED: Fix for gradient backgrounds that might interfere with scroll */
+.gradient-bg {
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* ADDED: Prevent overflow issues in grid layouts */
+.grid-container {
+  overflow: visible;
+  min-height: 0;
+}
+
+.grid-item {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ADDED: Specific fixes for Tailwind CSS conflicts */
+.min-h-screen {
+  min-height: 100vh !important;
+  height: auto !important;
+}
+
+/* ADDED: Ensure proper height calculations for dark theme containers */
+.bg-slate-900, .bg-slate-800 {
+  min-height: fit-content;
+}
+
+/* ADDED: Debug helpers for scroll issues (remove in production) */
+.scroll-debug {
+  border: 1px dashed rgba(59, 130, 246, 0.5);
+  position: relative;
+}
+
+.scroll-debug::after {
+  content: 'Scroll OK';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  z-index: 10000;
+}
+
+/* ADDED: Force proper rendering for React components */
+[data-react-component] {
+  display: block;
+  overflow: visible;
+}
+
+/* ADDED: Fix for potential Tailwind utility conflicts */
+.overflow-y-auto {
+  overflow-y: auto !important;
+}
+
+.overflow-hidden {
+  overflow: hidden !important;
+}
+
+/* ENHANCED: Better mobile scroll handling */
+@media (max-width: 768px) {
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ADDED: Prevent layout shifts that could break scroll */
+img, video, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ADDED: Ensure proper stacking context for scrollable elements */
+.z-50, .z-40, .z-30 {
+  position: relative;
 }

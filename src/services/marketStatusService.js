@@ -1,18 +1,24 @@
 import { supabase } from '../lib/supabase';
 
 export const marketStatusService = {
-  // Get current market status
+  // Get current market status with better error handling
   async getMarketStatus(exchange = 'NYSE') {
     try {
-      const { data, error } = await supabase
-        ?.from('market_calendars')
-        ?.select('*')
-        ?.eq('exchange', exchange)
-        ?.eq('market_date', new Date()?.toISOString()?.split('T')?.[0])
-        ?.single();
+      // Add timeout and retry logic
+      const { data, error } = await Promise.race([
+        supabase
+          ?.from('market_calendars')
+          ?.select('*')
+          ?.eq('exchange', exchange)
+          ?.eq('market_date', new Date()?.toISOString()?.split('T')?.[0])
+          ?.single(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database timeout')), 10000)
+        )
+      ]);
 
       if (error || !data) {
-        // Fallback to computed status
+        console.warn('Market calendar query failed, using fallback:', error?.message);
         return this.getFallbackMarketStatus();
       }
 
@@ -33,10 +39,11 @@ export const marketStatusService = {
         isTradingDay: data?.is_trading_day,
         preMarketOpen: data?.pre_market_open,
         afterHoursClose: data?.after_hours_close,
-        lastUpdate: new Date()?.toISOString()
+        lastUpdate: new Date()?.toISOString(),
+        source: 'database'
       };
     } catch (error) {
-      console.error('Market status fetch error:', error?.message);
+      console.warn('Market status service error:', error?.message);
       return this.getFallbackMarketStatus();
     }
   },
@@ -161,22 +168,33 @@ export const marketStatusService = {
     }
   },
 
-  // Helper methods
+  // Enhanced fallback with better error handling
   getFallbackMarketStatus() {
     const now = new Date();
     const hour = now?.getHours();
     const isWeekend = now?.getDay() === 0 || now?.getDay() === 6;
     
+    // More sophisticated market hours calculation
+    const isMarketHours = !isWeekend && hour >= 9 && hour < 16;
+    const isPreMarket = !isWeekend && hour >= 4 && hour < 9;
+    const isAfterHours = !isWeekend && hour >= 16 && hour < 20;
+    
     return {
-      isOpen: !isWeekend && hour >= 9 && hour < 16,
-      status: isWeekend ? 'CLOSED' : (hour >= 9 && hour < 16 ? 'OPEN' : 'CLOSED'),
+      isOpen: isMarketHours,
+      status: isWeekend ? 'CLOSED' : (isMarketHours ? 'OPEN' : 'CLOSED'),
       exchange: 'NYSE',
       timezone: 'America/New_York',
       openTime: '09:30:00',
       closeTime: '16:00:00',
       isTradingDay: !isWeekend,
+      preMarketOpen: '04:00:00',
+      afterHoursClose: '20:00:00',
       source: 'fallback',
-      lastUpdate: new Date()?.toISOString()
+      lastUpdate: new Date()?.toISOString(),
+      extendedHours: {
+        preMarket: isPreMarket,
+        afterHours: isAfterHours
+      }
     };
   },
 

@@ -79,8 +79,7 @@ const TechnicalMetricsPanel = () => {
           color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400' :
           color === 'teal' ? 'bg-teal-500/20 text-teal-400' :
           color === 'orange' ? 'bg-orange-500/20 text-orange-400' :
-          color === 'blue' ? 'bg-blue-500/20 text-blue-400' :
-          'bg-gray-500/20 text-gray-400'
+          color === 'blue'? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'
         }`}>
           {icon}
         </div>

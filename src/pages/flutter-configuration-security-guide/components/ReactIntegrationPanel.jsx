@@ -242,8 +242,7 @@ export const useConfig = () => {
               onClick={() => setActivePattern(key)}
               className={`px-4 py-2 rounded-lg transition-all duration-200 ${
                 activePattern === key
-                  ? 'bg-teal-500/20 text-teal-200 border border-teal-400/30' 
-                  : 'bg-white/5 text-white/70 hover:bg-white/10 border border-transparent'
+                  ? 'bg-teal-500/20 text-teal-200 border border-teal-400/30' :'bg-white/5 text-white/70 hover:bg-white/10 border border-transparent'
               }`}
             >
               {title}

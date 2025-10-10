@@ -1,0 +1,67 @@
+http:
+  middlewares:
+    # Security headers middleware
+    sec-headers:
+      headers:
+        contentSecurityPolicy: "default-src 'self'; img-src 'self' data: https:; connect-src 'self' https: wss:; script-src 'self'; style-src 'self' 'unsafe-inline'"
+        strictTransportSecurity: "max-age=31536000; includeSubDomains; preload"
+        xContentTypeOptions: "nosniff"
+        referrerPolicy: "no-referrer-when-downgrade"
+        xFrameOptions: "SAMEORIGIN"
+        permissionsPolicy: "geolocation=(), microphone=(), camera=()"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        customResponseHeaders:
+          X-Robots-Tag: "noindex, nofollow"
+          Cache-Control: "no-cache, no-store, must-revalidate"
+    
+    # Rate limiting for API endpoints  
+    rl-api:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: "1m"
+    
+    # Strict rate limiting for sensitive endpoints
+    rl-strict:
+      rateLimit:
+        average: 20
+        burst: 10
+        period: "1m"
+    
+    # SPA fallback middleware for React Router - CRITICAL ANTI-502
+    spa-fallback:
+      errors:
+        status:
+          - "404"
+          - "502"
+          - "503" 
+          - "504"
+        service: "mvp-frontend"
+        query: "/index.html"
+
+  # Services configuration for error handling
+  services:
+    # Fallback service for error pages
+    error-fallback:
+      loadBalancer:
+        servers:
+          - url: "http://mvp-frontend:80"
+        healthCheck:
+          path: "/healthz"
+          interval: "30s"
+          timeout: "5s"
+
+# TLS Configuration
+tls:
+  options:
+    default:
+      sslProtocols:
+        - "TLSv1.2"
+        - "TLSv1.3"
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+        - "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384"
+      minVersion: "VersionTLS12"

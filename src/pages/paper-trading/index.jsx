@@ -8,6 +8,7 @@ import TradeJournal from './components/TradeJournal';
 import PositionTracker from './components/PositionTracker';
 import QuickActions from './components/QuickActions';
 import * as paperTradingService from '../../services/paperTradingService';
+import PaperModeBanner from '../../components/ui/PaperModeBanner';
 
 const PaperTrading = () => {
   const { user, loading: authLoading } = useAuth();
@@ -397,7 +398,11 @@ const PaperTrading = () => {
   ];
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <PaperModeBanner />
+      </div>
+
       <Helmet>
         <title>Paper Trading - Rocket Trading MVP</title>
         <meta name="description" content="Virtual trading platform with real-time order execution, position tracking, and trade journaling" />
@@ -535,7 +540,7 @@ const PaperTrading = () => {
           autoHideDuration={5000}
         />
       </div>
-    </>
+    </div>
   );
 };
 

@@ -46,7 +46,6 @@ with:
         <Clipboard className="w-6 h-6 text-blue-400" />
         <h2 className="text-2xl font-bold text-white">Snippets à coller</h2>
       </div>
-      
       <div className="space-y-6">
         {snippets?.map((snippet, index) => (
           <motion.div

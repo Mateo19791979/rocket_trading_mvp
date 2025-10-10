@@ -6,7 +6,7 @@ const AjustementsRecommandésPanel = () => {
   const ajustements = [
     {
       icon: StopCircle,
-      title: "concurrency: cancel-in-progress pour éviter files d'attente",
+      title: "concurrency: cancel-in-progress pour éviter files d\'attente",
       description: "Annulation automatique des builds en cours"
     },
     {
@@ -42,7 +42,6 @@ const AjustementsRecommandésPanel = () => {
         <Settings className="w-6 h-6 text-orange-400" />
         <h2 className="text-2xl font-bold text-white">Ajustements recommandés</h2>
       </div>
-      
       <div className="space-y-4">
         {ajustements?.map((ajustement, index) => (
           <motion.div

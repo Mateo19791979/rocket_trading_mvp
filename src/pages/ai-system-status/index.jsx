@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Download, Play, Pause, AlertTriangle, Settings, Power, Wifi, WifiOff, Server, Activity, Database } from 'lucide-react';
 import { aiAgentStatusService } from '../../services/aiAgentStatusService';
+import { useAuth } from '../../contexts/AuthContext';
 import AgentGrid from './components/AgentGrid';
 import SystemKPIs from './components/SystemKPIs';
 import AgentControlModal from './components/AgentControlModal';
 
 const AISystemStatus = () => {
+  const { user, loading: authLoading } = useAuth();
   const [agents, setAgents] = useState([]);
   const [systemStats, setSystemStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [controlModalOpen, setControlModalOpen] = useState(false);
-  const [degradedModeActive, setDegradedModeActive] = useState(true);
+  const [degradedModeActive, setDegradedModeActive] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -21,130 +23,62 @@ const AISystemStatus = () => {
     group: '',
     health: ''
   });
+  const [realtimeChannel, setRealtimeChannel] = useState(null);
 
-  // API Testing states
+  // API Testing states for Trading MVP compatibility
   const [apiTestResults, setApiTestResults] = useState({});
   const [apiTesting, setApiTesting] = useState({});
 
-  // API Base URL for Trading MVP
-  const MVP_API_BASE = 'https://api.trading-mvp.com';
+  // Enhanced API Base URL with environment variable support
+  const MVP_API_BASE = import.meta.env?.VITE_MVP_API_BASE || 'https://rockettra3991.builtwithrocket.new';
+  const API_TIMEOUT = parseInt(import.meta.env?.VITE_API_TIMEOUT) || 5000;
+  const DEBUG_API = import.meta.env?.VITE_DEBUG_API === 'true';
 
-  // Mock response data for when API is unavailable
-  const getMockApiResponse = (endpoint) => {
-    const mockResponses = {
-      '/status': {
-        status: 'OK',
-        version: '1.0.0',
-        uptime: '2d 4h 15m',
-        services: {
-          database: 'healthy',
-          trading_engine: 'healthy',
-          data_feeds: 'degraded'
-        },
-        last_trade: '2025-09-28T07:30:00Z'
-      },
-      '/registry': {
-        agents: [
-          { id: 'agent_alpha', name: 'Alpha Scanner', status: 'active' },
-          { id: 'agent_beta', name: 'Beta Executor', status: 'active' },
-          { id: 'agent_gamma', name: 'Gamma Monitor', status: 'paused' }
-        ],
-        strategies: ['momentum', 'arbitrage', 'mean_reversion'],
-        endpoints: ['/status', '/registry', '/agents', '/strategies']
-      }
-    };
-    return mockResponses?.[endpoint] || { message: 'Mock response for ' + endpoint };
-  };
+  // Load real data from Supabase
+  const loadAgentData = async () => {
+    if (!user) {
+      setError('Authentication required');
+      return;
+    }
 
-  // Test Trading MVP API endpoints with improved error handling
-  const testTradingMvpEndpoint = async (endpoint) => {
-    const endpointKey = endpoint?.replace('/', '_');
-    setApiTesting(prev => ({ ...prev, [endpointKey]: true }));
+    setLoading(true);
+    setError(null);
     
     try {
-      console.log(`Testing endpoint: ${MVP_API_BASE}${endpoint}`);
-      
-      // Set a timeout for the fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller?.abort(), 5000); // 5 second timeout
-      
-      const response = await fetch(`${MVP_API_BASE}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        signal: controller?.signal
-      });
+      // Load agents and system stats in parallel
+      const [agentsData, statsData] = await Promise.all([
+        aiAgentStatusService?.getAllAgents(),
+        aiAgentStatusService?.getSystemHealthStats()
+      ]);
 
-      clearTimeout(timeoutId);
+      setAgents(agentsData || []);
+      setSystemStats(statsData);
+      setConnectionStatus('connected');
+      setDegradedModeActive(false);
+      setLastUpdate(new Date());
 
-      let data;
-      try {
-        data = await response?.json();
-      } catch (jsonError) {
-        // If response isn't JSON, use text
-        data = await response?.text();
+      if (DEBUG_API) {
+        console.log('Loaded agents:', agentsData?.length);
+        console.log('System stats:', statsData);
       }
-      
-      const result = {
-        status: response?.ok ? 'OK' : 'ERROR',
-        statusCode: response?.status,
-        data: data,
-        timestamp: new Date()?.toLocaleTimeString(),
-        endpoint: endpoint,
-        source: 'live'
-      };
 
-      console.log(`Endpoint ${endpoint} result:`, result);
+    } catch (loadError) {
+      console.error('Failed to load agent data:', loadError);
+      setError(`Service unavailable: ${loadError?.message}`);
+      setConnectionStatus('degraded');
+      setDegradedModeActive(true);
       
-      setApiTestResults(prev => ({
-        ...prev,
-        [endpointKey]: result
-      }));
-
-    } catch (testError) {
-      console.warn(`Live API test failed for ${endpoint}, using mock data:`, testError?.message);
-      
-      // When live API fails, provide mock response
-      const mockData = getMockApiResponse(endpoint);
-      
-      setApiTestResults(prev => ({
-        ...prev,
-        [endpointKey]: {
-          status: 'MOCK',
-          statusCode: 200,
-          data: mockData,
-          error: `Live API unavailable: ${testError?.message}`,
-          timestamp: new Date()?.toLocaleTimeString(),
-          endpoint: endpoint,
-          source: 'mock'
-        }
-      }));
+      // Generate fallback mock data for development
+      generateFallbackData();
     } finally {
-      setApiTesting(prev => ({ ...prev, [endpointKey]: false }));
+      setLoading(false);
     }
   };
 
-  // Test all endpoints
-  const testAllEndpoints = async () => {
-    const endpoints = ['/status', '/registry'];
-    
-    for (const endpoint of endpoints) {
-      await testTradingMvpEndpoint(endpoint);
-    }
-  };
-
-  // Auto-test on component mount
-  useEffect(() => {
-    console.log('Auto-testing Trading MVP endpoints...');
-    testAllEndpoints();
-  }, []);
-
-  // Simple mock data generation
-  const generateMockData = () => {
+  // Generate fallback data when Supabase is not available
+  const generateFallbackData = () => {
     const mockAgents = Array.from({ length: 24 }, (_, index) => ({
-      id: `agent_${index + 1}`,
+      id: `fallback_agent_${index + 1}`,
       name: `Agent ${String.fromCharCode(65 + index)}`,
       agent_status: ['active', 'paused', 'inactive', 'error']?.[index % 4],
       agent_group: ['ingestion', 'signals', 'execution', 'orchestration']?.[index % 4],
@@ -159,11 +93,7 @@ const AISystemStatus = () => {
         last_heartbeat: new Date()?.toISOString()
       },
       last_active_at: new Date(Date.now() - Math.random() * 86400000)?.toISOString(),
-      configuration: {
-        enabled: true,
-        timeout: 30000,
-        retry_count: 3
-      }
+      created_at: new Date()?.toISOString()
     }));
 
     const mockStats = {
@@ -187,97 +117,99 @@ const AISystemStatus = () => {
       cpuUsage: 42.1
     };
 
-    return { mockAgents, mockStats };
-  };
-
-  // Initialize with mock data immediately
-  useEffect(() => {
-    const { mockAgents, mockStats } = generateMockData();
     setAgents(mockAgents);
     setSystemStats(mockStats);
     setLastUpdate(new Date());
-    console.log('Initialized with mock data');
-  }, []);
+  };
 
-  // Try to load real data in background
-  const loadRealData = async () => {
-    if (!aiAgentStatusService) return;
-    
-    setLoading(true);
+  // Setup realtime subscriptions
+  const setupRealtimeSubscription = () => {
+    if (!user || realtimeChannel) return;
+
     try {
-      const [realAgents, realStats] = await Promise.all([
-        aiAgentStatusService?.getAllAgents(),
-        aiAgentStatusService?.getSystemHealthStats()
-      ]);
+      const channel = aiAgentStatusService?.subscribeToAgents((payload) => {
+        if (DEBUG_API) {
+          console.log('Realtime update:', payload);
+        }
+        
+        // Refresh data when changes occur
+        loadAgentData();
+      });
 
-      if (realAgents && realAgents?.length > 0) {
-        setAgents(realAgents);
-        setConnectionStatus('connected');
-        setDegradedModeActive(false);
-        console.log('Loaded real data');
-      }
-
-      if (realStats && Object.keys(realStats)?.length > 0) {
-        setSystemStats(realStats);
-      }
-
-      setLastUpdate(new Date());
-
-    } catch (serviceError) {
-      console.error('Service error, keeping mock data:', serviceError);
-      setConnectionStatus('disconnected');
-      setDegradedModeActive(true);
-      setError(`Service unavailable: ${serviceError?.message}`);
-    } finally {
-      setLoading(false);
+      setRealtimeChannel(channel);
+    } catch (subscriptionError) {
+      console.warn('Failed to setup realtime subscription:', subscriptionError);
     }
   };
 
+  // Initial load and auth handling
+  useEffect(() => {
+    if (!authLoading) {
+      if (user) {
+        loadAgentData();
+        setupRealtimeSubscription();
+      } else {
+        setError('Please sign in to view AI system status');
+        setConnectionStatus('disconnected');
+        setDegradedModeActive(true);
+      }
+    }
+
+    return () => {
+      if (realtimeChannel) {
+        aiAgentStatusService?.unsubscribeFromAgents(realtimeChannel);
+      }
+    };
+  }, [user, authLoading]);
+
   // Auto-refresh timer
   useEffect(() => {
-    if (autoRefresh && connectionStatus !== 'disconnected') {
-      const interval = setInterval(loadRealData, 30000);
+    if (autoRefresh && user && connectionStatus !== 'disconnected') {
+      const interval = setInterval(loadAgentData, 30000);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, connectionStatus]);
+  }, [autoRefresh, user, connectionStatus]);
 
   // Manual retry
   const handleManualRetry = () => {
     setError(null);
-    loadRealData();
+    loadAgentData();
   };
 
   // Agent control operations
   const handleAgentControl = async (agentId, action) => {
+    if (!user) {
+      setError('Authentication required');
+      return;
+    }
+
     try {
-      if (aiAgentStatusService && aiAgentStatusService?.controlAgent) {
-        await aiAgentStatusService?.controlAgent(agentId, action);
-        loadRealData();
-      } else {
-        throw new Error('Control service unavailable');
-      }
-    } catch (error) {
-      setError(`Failed to ${action} agent: ${error?.message}`);
+      await aiAgentStatusService?.controlAgent(agentId, action);
+      // Refresh data after control action
+      loadAgentData();
+    } catch (controlError) {
+      setError(`Failed to ${action} agent: ${controlError?.message}`);
     }
   };
 
   // Export functionality
   const handleExport = async () => {
+    if (!user) {
+      setError('Authentication required');
+      return;
+    }
+
     try {
-      if (aiAgentStatusService && aiAgentStatusService?.exportAgentReport) {
-        const csvContent = await aiAgentStatusService?.exportAgentReport();
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL?.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ai-agents-status-${new Date()?.toISOString()?.split('T')?.[0]}.csv`;
-        a?.click();
-        window.URL?.revokeObjectURL(url);
-      } else {
-        throw new Error('Export service unavailable');
-      }
-    } catch (error) {
-      setError(`Export failed: ${error?.message}`);
+      const csvContent = await aiAgentStatusService?.exportAgentReport();
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL?.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-agents-status-${new Date()?.toISOString()?.split('T')?.[0]}.csv`;
+      a?.click();
+      window.URL?.revokeObjectURL(url);
+    } catch (exportError) {
+      setError(`Export failed: ${exportError?.message}`);
     }
   };
 
@@ -289,6 +221,161 @@ const AISystemStatus = () => {
     return true;
   });
 
+  // Trading MVP API testing (preserved for compatibility)
+  const testTradingMvpEndpoint = async (endpoint, retryCount = 0) => {
+    const endpointKey = endpoint?.replace('/', '_');
+    const maxRetries = parseInt(import.meta.env?.VITE_API_RETRY_ATTEMPTS) || 3;
+    
+    setApiTesting(prev => ({ ...prev, [endpointKey]: true }));
+    
+    try {
+      if (DEBUG_API) {
+        console.log(`Testing endpoint: ${MVP_API_BASE}${endpoint} (attempt ${retryCount + 1})`);
+      }
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller?.abort(), API_TIMEOUT);
+      
+      let response;
+      try {
+        response = await fetch(`${MVP_API_BASE}${endpoint}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          signal: controller?.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+          return testTradingMvpEndpoint(endpoint, retryCount + 1);
+        }
+        throw fetchError;
+      }
+
+      let data;
+      const contentType = response?.headers?.get('content-type');
+      
+      try {
+        if (contentType && contentType?.includes('application/json')) {
+          data = await response?.json();
+        } else {
+          data = await response?.text();
+        }
+      } catch (parseError) {
+        data = { error: 'Response parsing failed', raw: await response?.text() };
+      }
+      
+      const result = {
+        status: response?.ok ? 'OK' : 'ERROR',
+        statusCode: response?.status,
+        data: data,
+        timestamp: new Date()?.toLocaleTimeString(),
+        endpoint: endpoint,
+        source: 'live',
+        attempts: retryCount + 1
+      };
+
+      if (DEBUG_API) {
+        console.log(`Endpoint ${endpoint} result:`, result);
+      }
+      
+      setApiTestResults(prev => ({
+        ...prev,
+        [endpointKey]: result
+      }));
+
+    } catch (testError) {
+      if (DEBUG_API) {
+        console.warn(`API test failed after ${retryCount + 1} attempts for ${endpoint}:`, testError?.message);
+      }
+      
+      const mockData = getMockApiResponse(endpoint);
+      
+      setApiTestResults(prev => ({
+        ...prev,
+        [endpointKey]: {
+          status: 'MOCK',
+          statusCode: 200,
+          data: {
+            ...mockData,
+            _fallback_reason: `Live API unavailable after ${retryCount + 1} attempts`,
+            _error_details: testError?.message
+          },
+          error: `Connection failed: ${testError?.message}`,
+          timestamp: new Date()?.toLocaleTimeString(),
+          endpoint: endpoint,
+          source: 'mock',
+          attempts: retryCount + 1
+        }
+      }));
+    } finally {
+      setApiTesting(prev => ({ ...prev, [endpointKey]: false }));
+    }
+  };
+
+  const getMockApiResponse = (endpoint) => {
+    const timestamp = new Date()?.toISOString();
+    const mockResponses = {
+      '/status': {
+        status: 'OK',
+        version: '1.2.0',
+        uptime: '2d 4h 15m',
+        timestamp: timestamp,
+        environment: 'production',
+        services: {
+          database: 'healthy',
+          trading_engine: 'healthy',
+          data_feeds: 'degraded',
+          risk_controller: 'healthy'
+        },
+        last_trade: '2025-09-29T15:30:00Z',
+        active_agents: agents?.length || 18,
+        total_trades_today: 247
+      },
+      '/registry': {
+        agents: agents?.slice(0, 3)?.map(agent => ({
+          id: agent?.id,
+          name: agent?.name,
+          status: agent?.agent_status,
+          last_heartbeat: timestamp
+        })) || [],
+        strategies: ['momentum', 'arbitrage', 'mean_reversion', 'volatility_capture'],
+        endpoints: ['/status', '/registry', '/agents', '/strategies', '/health'],
+        registry_version: '1.1.0',
+        last_updated: timestamp
+      }
+    };
+    return mockResponses?.[endpoint] || { 
+      message: 'Mock response for ' + endpoint,
+      timestamp: timestamp,
+      endpoint: endpoint
+    };
+  };
+
+  const testAllEndpoints = async () => {
+    const endpoints = ['/status', '/registry'];
+    for (const endpoint of endpoints) {
+      await testTradingMvpEndpoint(endpoint);
+    }
+  };
+
+  // Loading state for authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -297,13 +384,14 @@ const AISystemStatus = () => {
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center">
               <Server className="w-6 h-6 text-blue-400 mr-2" />
-              AI System Status + Trading MVP API Tester
+              AI System Status + Trading MVP Diagnostics
               {connectionStatus === 'connected' && <Wifi className="w-5 h-5 text-green-500 ml-2" />}
+              {connectionStatus === 'degraded' && <WifiOff className="w-5 h-5 text-yellow-500 ml-2" />}
               {connectionStatus === 'disconnected' && <WifiOff className="w-5 h-5 text-red-500 ml-2" />}
-              {loading && <RefreshCw className="w-5 h-5 text-yellow-500 animate-spin ml-2" />}
+              {loading && <RefreshCw className="w-5 h-5 text-blue-500 animate-spin ml-2" />}
             </h1>
             <p className="text-gray-400 text-sm">
-              Surveillance de {agents?.length} agents IA + Test API Trading MVP
+              Surveillance avancée de {agents?.length} agents IA avec intégration Supabase temps réel
               {lastUpdate && (
                 <span className="ml-2">• Dernière mise à jour: {lastUpdate?.toLocaleTimeString()}</span>
               )}
@@ -311,19 +399,22 @@ const AISystemStatus = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Connection Status */}
+            {/* Enhanced Connection Status */}
             <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-              connectionStatus === 'connected' ? 'bg-green-600/20 border border-green-600' : 'bg-red-600/20 border border-red-600'
+              connectionStatus === 'connected' ? 'bg-green-600/20 border border-green-600' : 
+              connectionStatus === 'degraded'? 'bg-yellow-600/20 border border-yellow-600' : 'bg-red-600/20 border border-red-600'
             }`}>
               <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'
+                connectionStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+                connectionStatus === 'degraded'? 'bg-yellow-500' : 'bg-red-500'
               }`}></div>
               <span className="text-sm font-medium">
-                {connectionStatus === 'connected' ? 'Service Connecté' : 'Mode Déconnecté'}
+                {connectionStatus === 'connected' ? 'Supabase Connecté' : 
+                 connectionStatus === 'degraded' ? 'Mode Dégradé' : 'Non Connecté'}
               </span>
             </div>
 
-            {/* API Test Button */}
+            {/* API Test Button for Trading MVP compatibility */}
             <button
               onClick={testAllEndpoints}
               className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg transition-colors"
@@ -358,6 +449,7 @@ const AISystemStatus = () => {
             <button
               onClick={handleExport}
               className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+              disabled={!user}
             >
               <Download className="w-4 h-4" />
               <span>Exporter</span>
@@ -367,6 +459,7 @@ const AISystemStatus = () => {
             <button
               onClick={() => setControlModalOpen(true)}
               className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
+              disabled={!user}
             >
               <Power className="w-4 h-4" />
               <span>Contrôles d'urgence</span>
@@ -374,55 +467,77 @@ const AISystemStatus = () => {
           </div>
         </div>
 
-        {/* Error Display */}
+        {/* Enhanced Error Display */}
         {error && (
-          <div className="mt-4 p-3 bg-red-600/20 border border-red-600 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
-              <span className="text-red-300 text-sm">{error}</span>
-              <button
-                onClick={() => setError(null)}
-                className="ml-auto text-red-400 hover:text-red-300 text-sm"
-              >
-                Fermer
-              </button>
+          <div className="mt-4 p-4 bg-red-600/20 border border-red-600 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-red-300 font-medium">Erreur de Service</h3>
+                <p className="text-red-200 text-sm mt-1">{error}</p>
+                <div className="flex items-center space-x-3 mt-3">
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-300 text-sm underline"
+                  >
+                    Ignorer
+                  </button>
+                  <button
+                    onClick={handleManualRetry}
+                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition-colors"
+                    disabled={loading}
+                  >
+                    {loading ? 'Reconnexion...' : 'Réessayer'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Trading MVP API Test Results */}
+        {/* Enhanced Trading MVP API Test Results */}
         <div className="mt-6 space-y-4">
-          <h2 className="text-lg font-semibold text-white flex items-center">
-            <Database className="w-5 h-5 text-blue-400 mr-2" />
-            Trading MVP API Test Results
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white flex items-center">
+              <Database className="w-5 h-5 text-blue-400 mr-2" />
+              Trading MVP API - Diagnostics Avancés
+            </h2>
+            <div className="text-xs text-gray-400">
+              API Base: {MVP_API_BASE}
+            </div>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Endpoint */}
+            {/* Status Endpoint - Enhanced */}
             <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-white">/status</h3>
                 <div className="flex items-center space-x-2">
                   {apiTestResults?._status?.source && (
-                    <span className={`px-2 py-1 text-xs rounded ${
+                    <span className={`px-2 py-1 text-xs rounded font-medium ${
                       apiTestResults?._status?.source === 'live' ? 'bg-green-600 text-white' :
                       apiTestResults?._status?.source === 'mock' ? 'bg-orange-600 text-white' : 'bg-gray-600 text-white'
                     }`}>
                       {apiTestResults?._status?.source?.toUpperCase()}
                     </span>
                   )}
+                  {apiTestResults?._status?.attempts > 1 && (
+                    <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded">
+                      {apiTestResults?._status?.attempts} tentatives
+                    </span>
+                  )}
                   <button
                     onClick={() => testTradingMvpEndpoint('/status')}
                     disabled={apiTesting?._status}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors disabled:bg-gray-600"
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
                   >
-                    {apiTesting?._status ? 'Testing...' : 'Test'}
+                    {apiTesting?._status ? 'Test en cours...' : 'Tester'}
                   </button>
                 </div>
               </div>
               
               {apiTestResults?._status ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <div className={`w-3 h-3 rounded-full ${
                       apiTestResults?._status?.status === 'OK' ? 'bg-green-500' :
@@ -435,47 +550,60 @@ const AISystemStatus = () => {
                   </div>
                   
                   {apiTestResults?._status?.error && (
-                    <div className="text-xs text-yellow-400 mb-2">
-                      {apiTestResults?._status?.error}
+                    <div className="p-2 bg-yellow-900/50 border border-yellow-700 rounded text-xs text-yellow-300">
+                      <strong>Erreur:</strong> {apiTestResults?._status?.error}
                     </div>
                   )}
                   
                   <div className="bg-gray-800 rounded p-3 text-xs">
-                    <pre className="text-green-300 whitespace-pre-wrap overflow-x-auto">
+                    <pre className="text-green-300 whitespace-pre-wrap overflow-x-auto max-h-40">
                       {JSON.stringify(apiTestResults?._status?.data, null, 2)}
                     </pre>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-400 text-sm">Cliquez pour tester l'endpoint /status</div>
+                <div className="text-center py-4">
+                  <div className="text-gray-400 text-sm mb-2">Aucun test effectué</div>
+                  <button
+                    onClick={() => testTradingMvpEndpoint('/status')}
+                    className="text-blue-400 hover:text-blue-300 text-sm underline"
+                  >
+                    Lancer le premier test
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Registry Endpoint */}
+            {/* Registry Endpoint - Enhanced */}
             <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-white">/registry</h3>
                 <div className="flex items-center space-x-2">
                   {apiTestResults?._registry?.source && (
-                    <span className={`px-2 py-1 text-xs rounded ${
+                    <span className={`px-2 py-1 text-xs rounded font-medium ${
                       apiTestResults?._registry?.source === 'live' ? 'bg-green-600 text-white' :
                       apiTestResults?._registry?.source === 'mock' ? 'bg-orange-600 text-white' : 'bg-gray-600 text-white'
                     }`}>
                       {apiTestResults?._registry?.source?.toUpperCase()}
                     </span>
                   )}
+                  {apiTestResults?._registry?.attempts > 1 && (
+                    <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded">
+                      {apiTestResults?._registry?.attempts} tentatives
+                    </span>
+                  )}
                   <button
                     onClick={() => testTradingMvpEndpoint('/registry')}
                     disabled={apiTesting?._registry}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors disabled:bg-gray-600"
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
                   >
-                    {apiTesting?._registry ? 'Testing...' : 'Test'}
+                    {apiTesting?._registry ? 'Test en cours...' : 'Tester'}
                   </button>
                 </div>
               </div>
               
               {apiTestResults?._registry ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <div className={`w-3 h-3 rounded-full ${
                       apiTestResults?._registry?.status === 'OK' ? 'bg-green-500' :
@@ -488,40 +616,72 @@ const AISystemStatus = () => {
                   </div>
                   
                   {apiTestResults?._registry?.error && (
-                    <div className="text-xs text-yellow-400 mb-2">
-                      {apiTestResults?._registry?.error}
+                    <div className="p-2 bg-yellow-900/50 border border-yellow-700 rounded text-xs text-yellow-300">
+                      <strong>Erreur:</strong> {apiTestResults?._registry?.error}
                     </div>
                   )}
                   
                   <div className="bg-gray-800 rounded p-3 text-xs">
-                    <pre className="text-green-300 whitespace-pre-wrap overflow-x-auto">
+                    <pre className="text-green-300 whitespace-pre-wrap overflow-x-auto max-h-40">
                       {JSON.stringify(apiTestResults?._registry?.data, null, 2)}
                     </pre>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-400 text-sm">Cliquez pour tester l'endpoint /registry</div>
+                <div className="text-center py-4">
+                  <div className="text-gray-400 text-sm mb-2">Aucun test effectué</div>
+                  <button
+                    onClick={() => testTradingMvpEndpoint('/registry')}
+                    className="text-blue-400 hover:text-blue-300 text-sm underline"
+                  >
+                    Lancer le premier test
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          {/* API Testing Legend */}
-          <div className="mt-4 p-3 bg-gray-800 rounded-lg border border-gray-600">
-            <h4 className="text-sm font-semibold text-white mb-2">Légende des statuts API</h4>
-            <div className="flex items-center space-x-6 text-xs">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-gray-300">OK - API Live disponible</span>
+          {/* Enhanced API Testing Legend and Troubleshooting */}
+          <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-600">
+            <h4 className="text-sm font-semibold text-white mb-3">Diagnostic API & Dépannage</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h5 className="text-xs font-medium text-gray-300 mb-2">Statuts API</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-gray-300">OK - API Live opérationnelle</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                    <span className="text-gray-300">MOCK - Mode démonstration</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span className="text-gray-300">ERROR - Connexion échouée</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span className="text-gray-300">MOCK - Données de démonstration</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-gray-300">ERROR - Échec de connexion</span>
+              
+              <div>
+                <h5 className="text-xs font-medium text-gray-300 mb-2">Actions de Dépannage</h5>
+                <div className="space-y-1 text-xs text-gray-400">
+                  <div>• Vérifier la connexion Supabase</div>
+                  <div>• Contrôler les paramètres RLS</div>
+                  <div>• Valider l'authentification utilisateur</div>
+                  <div>• Tester manuellement les requêtes</div>
+                </div>
               </div>
             </div>
+            
+            {DEBUG_API && (
+              <div className="mt-3 pt-3 border-t border-gray-700">
+                <div className="text-xs text-blue-300">
+                  <strong>Mode Debug:</strong> Timeout API: {API_TIMEOUT}ms • Base URL: {MVP_API_BASE} • Auth: {user ? '✅' : '❌'}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -585,23 +745,41 @@ const AISystemStatus = () => {
           </div>
         )}
 
+        {/* Authentication Required Warning */}
+        {!user && (
+          <div className="mb-6">
+            <div className="bg-blue-600/20 border border-blue-600 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <AlertTriangle className="w-5 h-5 text-blue-500" />
+                <div>
+                  <h3 className="font-semibold text-blue-300">Authentification Requise</h3>
+                  <p className="text-blue-200 text-sm">
+                    Connectez-vous pour accéder aux données en temps réel des agents IA.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Degraded Mode Warning */}
-        {degradedModeActive && (
+        {degradedModeActive && user && (
           <div className="mb-6">
             <div className="bg-yellow-600/20 border border-yellow-600 rounded-lg p-4">
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="w-5 h-5 text-yellow-500" />
                 <div>
-                  <h3 className="font-semibold text-yellow-300">Mode Déconnecté</h3>
+                  <h3 className="font-semibold text-yellow-300">Mode Dégradé</h3>
                   <p className="text-yellow-200 text-sm">
-                    Affichage des données de démonstration. Tentative de connexion aux services en arrière-plan.
+                    Connexion à Supabase interrompue. Affichage des données de substitution. 
+                    Tentative de reconnexion automatique en cours.
                   </p>
                   <button
-                    onClick={loadRealData}
+                    onClick={loadAgentData}
                     className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm transition-colors"
                     disabled={loading}
                   >
-                    {loading ? 'Connexion...' : 'Réessayer la connexion'}
+                    {loading ? 'Reconnexion...' : 'Réessayer la connexion'}
                   </button>
                 </div>
               </div>
@@ -709,24 +887,28 @@ const AISystemStatus = () => {
                 <button
                   onClick={() => handleAgentControl(selectedAgent?.id, 'start')}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors"
+                  disabled={!user}
                 >
                   Démarrer
                 </button>
                 <button
                   onClick={() => handleAgentControl(selectedAgent?.id, 'pause')}
                   className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded text-sm transition-colors"
+                  disabled={!user}
                 >
                   Suspendre
                 </button>
                 <button
                   onClick={() => handleAgentControl(selectedAgent?.id, 'stop')}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+                  disabled={!user}
                 >
                   Arrêter
                 </button>
                 <button
                   onClick={() => handleAgentControl(selectedAgent?.id, 'restart')}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
+                  disabled={!user}
                 >
                   Redémarrer
                 </button>

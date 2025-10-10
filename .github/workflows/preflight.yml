@@ -1,0 +1,97 @@
+name: Trading MVP Preflight Check
+
+on: 
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    
+    env:
+      PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL }}
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
+      APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+      
+      - name: Wait for services (if needed)
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 30
+      
+      - name: Run preflight checks
+        id: preflight
+        run: |
+          chmod +x ./ops/preflight.sh
+          ./ops/preflight.sh
+          echo "preflight_status=$?" >> $GITHUB_OUTPUT
+      
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: preflight-results-${{ github.run_number }}
+          path: |
+            preflight-*.log
+            preflight-*.json
+          retention-days: 30
+      
+      - name: Post results to PR (if PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const { context } = require('@actions/github');
+            
+            // Read preflight results and post to PR
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preflight Check Results
+              
+              **Status:** ${{ steps.preflight.outputs.preflight_status == '0' && '✅ GO' || '❌ NO-GO' }}
+              **Environment:** ${{ github.event.inputs.environment || 'auto' }}
+              **Commit:** ${{ github.sha }}
+              
+              ${{ steps.preflight.outputs.preflight_status == '0' && 'All quality gates passed - ready for deployment!' || 'Quality gates failed - please review and fix issues before deployment.' }}
+              
+              <details>
+              <summary>View detailed results</summary>
+              
+              Check the [preflight workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for complete details.
+              </details>`
+            });
+      
+      - name: Fail workflow if preflight fails
+        if: steps.preflight.outputs.preflight_status != '0'
+        run: |
+          echo "❌ Preflight checks failed - blocking deployment"
+          exit 1
+      
+      - name: Success notification
+        if: steps.preflight.outputs.preflight_status == '0'
+        run: |
+          echo "✅ Preflight checks passed - deployment approved"
+          echo "🚀 Ready for production deployment"

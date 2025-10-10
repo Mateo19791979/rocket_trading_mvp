@@ -67,5 +67,38 @@ export const portfolioService = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // Set portfolio balance to specific amount (new method)
+  async setPortfolioBalance(userId, targetAmount = 10000) {
+    if (!userId) throw new Error('User ID is required');
+    
+    try {
+      // Get user's default portfolio
+      const { data: portfolio, error: portfolioError } = await supabase?.from('portfolios')?.select('id')?.eq('user_id', userId)?.eq('is_default', true)?.single();
+
+      if (portfolioError) throw portfolioError;
+
+      // Update portfolio values
+      const { data, error } = await supabase?.from('portfolios')?.update({
+          total_value: targetAmount,
+          cash_balance: targetAmount / 2,
+          updated_at: new Date()?.toISOString()
+        })?.eq('id', portfolio?.id)?.select()?.single();
+
+      if (error) throw error;
+
+      // Also update user account balance
+      await supabase?.from('user_profiles')?.update({
+          account_balance: targetAmount,
+          available_balance: targetAmount * 0.8,
+          buying_power: targetAmount,
+          updated_at: new Date()?.toISOString()
+        })?.eq('id', userId);
+
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 };

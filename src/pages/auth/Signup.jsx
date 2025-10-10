@@ -1,183 +1,218 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
+    fullName: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    fullName: '',
-    role: 'basic_user'
+    confirmPassword: ''
   });
+  const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e?.target?.name]: e?.target?.value
-    });
+    const { name, value } = e?.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const validateForm = () => {
+    if (!formData?.fullName?.trim()) {
+      return 'Full name is required';
+    }
+    if (!formData?.email?.trim()) {
+      return 'Email is required';
+    }
+    if (!formData?.email?.includes('@')) {
+      return 'Please enter a valid email';
+    }
+    if (formData?.password?.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    if (formData?.password !== formData?.confirmPassword) {
+      return 'Passwords do not match';
+    }
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
+    setAuthError('');
+
+    const validationError = validateForm();
+    if (validationError) {
+      setAuthError(validationError);
+      return;
+    }
+
     setIsLoading(true);
-    setError('');
 
-    if (formData?.password !== formData?.confirmPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData?.password?.length < 6) {
-      setError('Password must be at least 6 characters long');
-      setIsLoading(false);
-      return;
-    }
-
-    const { error: signUpError } = await signUp(
-      formData?.email,
-      formData?.password,
-      {
-        full_name: formData?.fullName,
-        role: formData?.role
+    try {
+      const result = await signUp(formData?.email, formData?.password, {
+        full_name: formData?.fullName
+      });
+      
+      if (result?.success) {
+        // Show success message and redirect
+        navigate('/auth/login', {
+          state: { 
+            message: 'Account created successfully! Please sign in to continue.',
+            email: formData?.email
+          }
+        });
+      } else {
+        setAuthError(result?.error || 'Signup failed');
       }
-    );
-    
-    if (signUpError) {
-      setError(signUpError);
-    } else {
-      navigate('/dashboard');
+    } catch (error) {
+      if (error?.message?.includes('Failed to fetch') || 
+          error?.message?.includes('AuthRetryableFetchError')) {
+        setAuthError('Cannot connect to authentication service. Your Supabase project may be paused or inactive. Please check your Supabase dashboard and resume your project if needed.');
+      } else {
+        setAuthError('Something went wrong. Please try again.');
+        console.error('JavaScript error in auth:', error);
+      }
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Create Account
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+            Create your account
           </h2>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Join our trading platform today
+          <p className="mt-2 text-center text-sm text-gray-300">
+            Join the trading platform
           </p>
         </div>
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-              {error}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {authError && (
+            <div className="bg-red-900/20 border border-red-500/50 text-red-300 px-4 py-3 rounded-md text-sm">
+              <div className="flex justify-between items-start">
+                <span>{authError}</span>
+                <button
+                  type="button"
+                  onClick={() => navigator?.clipboard?.writeText(authError)}
+                  className="ml-2 text-red-400 hover:text-red-200 text-xs underline"
+                  title="Copy error message"
+                >
+                  copy
+                </button>
+              </div>
             </div>
           )}
 
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Full Name
-            </label>
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              value={formData?.fullName}
-              onChange={handleChange}
-              required
-              placeholder="Enter your full name"
-              className="mt-1"
-            />
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-1">
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                name="fullName"
+                type="text"
+                required
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your full name"
+                value={formData?.fullName}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+                Email Address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your email"
+                value={formData?.email}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Create a password (min. 6 characters)"
+                value={formData?.password}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Confirm your password"
+                value={formData?.confirmPassword}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email Address
-            </label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData?.email}
-              onChange={handleChange}
-              required
-              placeholder="Enter your email"
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Account Type
-            </label>
-            <select
-              id="role"
-              name="role"
-              value={formData?.role}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="basic_user">Basic Trader</option>
-              <option value="premium_user">Premium Trader</option>
-              <option value="admin">Administrator</option>
-            </select>
+              {isLoading ? 'Creating account...' : 'Create account'}
+            </button>
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Password
-            </label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={formData?.password}
-              onChange={handleChange}
-              required
-              placeholder="Enter your password"
-              className="mt-1"
-              minLength={6}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Confirm Password
-            </label>
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData?.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="Confirm your password"
-              className="mt-1"
-            />
-          </div>
-
-          <Button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? 'Creating account...' : 'Create Account'}
-          </Button>
-        </form>
-
-        <div className="text-center">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
-            <Link to="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium">
-              Sign in here
+          <div className="text-center">
+            <span className="text-gray-300">Already have an account? </span>
+            <Link to="/auth/login" className="text-blue-400 hover:text-blue-300">
+              Sign in
             </Link>
-          </span>
-        </div>
+          </div>
+
+          {/* Feature Preview */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg">
+            <h3 className="text-sm font-medium text-blue-300 mb-2">🚀 What you'll get:</h3>
+            <ul className="text-xs text-gray-300 space-y-1">
+              <li>• Real-time market data with Finnhub API</li>
+              <li>• Portfolio tracking and analytics</li>
+              <li>• AI-powered trading insights</li>
+              <li>• Advanced risk management tools</li>
+            </ul>
+          </div>
+        </form>
       </div>
     </div>
   );

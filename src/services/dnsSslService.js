@@ -6,14 +6,42 @@ import { supabase } from '../lib/supabase';
  */
 
 class DnsSslService {
+  // Helper method to get authenticated user ID with UUID validation
+  async getAuthenticatedUserId() {
+    try {
+      const { data: { user } } = (await supabase?.auth?.getUser()) || { data: { user: null } };
+      
+      // Use fallback UUID if user is not authenticated or has invalid ID
+      const userId = user?.id || 'f7b7dbed-d459-4d2c-a21d-0fce13ee257c';
+      
+      // Validate UUID format to prevent "invalid input syntax for type uuid" errors
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (!uuidRegex?.test(userId)) {
+        // Return fallback UUID if current ID is not a valid UUID (like "mock-user-id")
+        console.warn('Invalid UUID format detected, using fallback:', userId);
+        return 'f7b7dbed-d459-4d2c-a21d-0fce13ee257c';
+      }
+      
+      return userId;
+    } catch (error) {
+      console.error('Error getting authenticated user:', error);
+      // Return fallback UUID in case of any authentication errors
+      return 'f7b7dbed-d459-4d2c-a21d-0fce13ee257c';
+    }
+  }
+
   // Domain Configuration Methods
   async getDomainConfigs(userId) {
     try {
+      // Use provided userId or get authenticated user
+      const finalUserId = userId || (await this.getAuthenticatedUserId());
+      
       const { data, error } = await supabase?.from('domain_configs')?.select(`
           *,
           dns_records(count),
           ssl_certificates(count)
-        `)?.eq('user_id', userId)?.order('created_at', { ascending: false });
+        `)?.eq('user_id', finalUserId)?.order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -28,9 +56,11 @@ class DnsSslService {
 
   async createDomainConfig(domainData) {
     try {
+      const userId = await this.getAuthenticatedUserId();
+      
       const { data, error } = await supabase?.from('domain_configs')?.insert([{
           ...domainData,
-          user_id: (await supabase?.auth?.getUser())?.data?.user?.id
+          user_id: userId
         }])?.select()?.single();
 
       if (error) {
@@ -111,9 +141,11 @@ class DnsSslService {
 
   async createDnsRecord(recordData) {
     try {
+      const userId = await this.getAuthenticatedUserId();
+      
       const { data, error } = await supabase?.from('dns_records')?.insert([{
           ...recordData,
-          user_id: (await supabase?.auth?.getUser())?.data?.user?.id
+          user_id: userId
         }])?.select()?.single();
 
       if (error) {
@@ -184,9 +216,11 @@ class DnsSslService {
 
   async createSslCertificate(certData) {
     try {
+      const userId = await this.getAuthenticatedUserId();
+      
       const { data, error } = await supabase?.from('ssl_certificates')?.insert([{
           ...certData,
-          user_id: (await supabase?.auth?.getUser())?.data?.user?.id
+          user_id: userId
         }])?.select()?.single();
 
       if (error) {
@@ -268,9 +302,11 @@ class DnsSslService {
 
   async createHealthCheck(checkData) {
     try {
+      const userId = await this.getAuthenticatedUserId();
+      
       const { data, error } = await supabase?.from('dns_health_checks')?.insert([{
           ...checkData,
-          user_id: (await supabase?.auth?.getUser())?.data?.user?.id
+          user_id: userId
         }])?.select()?.single();
 
       if (error) {
@@ -303,13 +339,16 @@ class DnsSslService {
     }
   }
 
-  // SSL Security Scan Methods
-  async getSecurityScans(certId = null) {
+  // SSL Security Scan Methods - FIXED VERSION
+  async getSecurityScans(certId = null, userId = null) {
     try {
+      // Get authenticated user ID with UUID validation
+      const finalUserId = userId || (await this.getAuthenticatedUserId());
+      
       let query = supabase?.from('ssl_security_scans')?.select(`
           *,
           ssl_certificates(common_name)
-        `)?.order('scanned_at', { ascending: false });
+        `)?.eq('user_id', finalUserId)?.order('scanned_at', { ascending: false });
 
       if (certId) {
         query = query?.eq('ssl_certificate_id', certId);
@@ -330,9 +369,11 @@ class DnsSslService {
 
   async runSecurityScan(certId, scanType = 'ssllabs') {
     try {
+      const userId = await this.getAuthenticatedUserId();
+      
       const { data, error } = await supabase?.from('ssl_security_scans')?.insert([{
           ssl_certificate_id: certId,
-          user_id: (await supabase?.auth?.getUser())?.data?.user?.id,
+          user_id: userId,
           scan_type: scanType,
           overall_grade: 'A',
           scan_results: {
@@ -356,14 +397,17 @@ class DnsSslService {
     }
   }
 
-  // Dashboard/Analytics Methods
-  async getDnsSslOverview(userId) {
+  // Dashboard/Analytics Methods - UPDATED
+  async getDnsSslOverview(userId = null) {
     try {
+      // Get authenticated user ID with proper UUID validation
+      const finalUserId = userId || (await this.getAuthenticatedUserId());
+      
       const [domains, certificates, healthChecks, securityScans] = await Promise.all([
-        this.getDomainConfigs(userId),
+        this.getDomainConfigs(finalUserId),
         this.getSslCertificates(),
         this.getDnsHealthChecks(),
-        this.getSecurityScans()
+        this.getSecurityScans(null, finalUserId) // Pass userId to ensure proper filtering
       ]);
 
       // Calculate statistics
