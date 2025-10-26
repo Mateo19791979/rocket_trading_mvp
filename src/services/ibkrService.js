@@ -1,20 +1,72 @@
 import { supabase } from '../lib/supabase';
 
 export const ibkrService = {
-  // Get user's IBKR connection
+  // Enhanced connection retrieval with error handling
   async getConnection(userId) {
-    if (!userId) throw new Error('User ID est requis');
+    if (!userId) {
+      console.warn('No user ID provided for IBKR connection');
+      return null;
+    }
     
     try {
-      const { data, error } = await supabase?.from('ibkr_connections')?.select('*')?.eq('user_id', userId)?.eq('is_active', true)?.single();
+      // First check if supabase is available
+      if (!supabase) {
+        console.warn('Supabase not available, returning mock IBKR connection');
+        return {
+          id: 'mock-ibkr-connection',
+          user_id: userId,
+          trading_mode: 'paper',
+          host: '127.0.0.1',
+          port: 7497,
+          client_id: 42,
+          is_active: true,
+          connection_status: 'mock',
+          is_mock: true
+        };
+      }
+
+      const { data, error } = await supabase
+        ?.from('ibkr_connections')
+        ?.select('*')
+        ?.eq('user_id', userId)
+        ?.eq('is_active', true)
+        ?.single();
 
       if (error && error?.code !== 'PGRST116') { // PGRST116 is "not found"
-        throw error;
+        console.error('IBKR connection query error:', error);
+        
+        // Return safe mock data instead of throwing
+        return {
+          id: 'error-fallback-connection',
+          user_id: userId,
+          trading_mode: 'paper',
+          host: '127.0.0.1',
+          port: 7497,
+          client_id: 42,
+          is_active: false,
+          connection_status: 'error',
+          error_message: error?.message,
+          is_error_fallback: true
+        };
       }
 
       return data || null;
     } catch (error) {
-      throw new Error(`Erreur récupération connexion IBKR: ${error?.message}`);
+      console.error('IBKR connection service error:', error);
+      
+      // Always return safe fallback to prevent app crashes
+      return {
+        id: 'exception-fallback-connection',
+        user_id: userId,
+        trading_mode: 'paper',
+        host: '127.0.0.1',
+        port: 7497,
+        client_id: 42,
+        is_active: false,
+        connection_status: 'exception',
+        error_message: error?.message,
+        is_exception_fallback: true
+      };
     }
   },
 
@@ -61,9 +113,14 @@ export const ibkrService = {
     }
   },
 
-  // Update connection status
+  // Enhanced status update with error handling
   async updateConnectionStatus(connectionId, status, errorMessage = null, latency = null) {
     try {
+      if (!supabase) {
+        console.warn('Supabase not available, cannot update IBKR connection status');
+        return { success: false, reason: 'supabase_unavailable' };
+      }
+
       const { error } = await supabase?.rpc('update_ibkr_connection_status', {
         connection_uuid: connectionId,
         new_status: status,
@@ -71,9 +128,15 @@ export const ibkrService = {
         latency_value: latency
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('IBKR status update error:', error);
+        return { success: false, error: error?.message };
+      }
+      
+      return { success: true };
     } catch (error) {
-      throw new Error(`Erreur mise à jour statut connexion: ${error?.message}`);
+      console.error('IBKR status update exception:', error);
+      return { success: false, error: error?.message };
     }
   },
 
@@ -119,7 +182,7 @@ export const ibkrService = {
     }
   },
 
-  // Get market data via IBKR (mock implementation)
+  // Enhanced market data with error handling
   async getMarketData(symbols = []) {
     try {
       // Mock market data that would come from IBKR
@@ -139,7 +202,15 @@ export const ibkrService = {
         timestamp: new Date()?.toISOString()
       };
     } catch (error) {
-      throw new Error(`Erreur données marché IBKR: ${error?.message}`);
+      console.error('IBKR market data error:', error);
+      
+      // Return empty data instead of throwing
+      return {
+        success: false,
+        data: [],
+        error: error?.message,
+        timestamp: new Date()?.toISOString()
+      };
     }
   },
 
@@ -225,10 +296,41 @@ export const ibkrService = {
   // Get IBKR system status
   async getIBKRStatus() {
     try {
+      if (!supabase) {
+        return {
+          gateway_paper: {
+            status: 'mock',
+            endpoint: '127.0.0.1:7497'
+          },
+          gateway_live: {
+            status: 'mock',
+            endpoint: '127.0.0.1:7496'
+          },
+          lastUpdated: new Date()?.toISOString(),
+          is_mock: true
+        };
+      }
+
       // Check IBKR API configs
       const { data: configs, error } = await supabase?.from('external_api_configs')?.select('*')?.like('api_name', 'ibkr_%');
 
-      if (error) throw error;
+      if (error) {
+        console.error('IBKR status query error:', error);
+        return {
+          gateway_paper: {
+            status: 'error',
+            endpoint: '127.0.0.1:7497',
+            error: error?.message
+          },
+          gateway_live: {
+            status: 'error',
+            endpoint: '127.0.0.1:7496',
+            error: error?.message
+          },
+          lastUpdated: new Date()?.toISOString(),
+          is_error_fallback: true
+        };
+      }
 
       return {
         gateway_paper: {
@@ -242,7 +344,39 @@ export const ibkrService = {
         lastUpdated: new Date()?.toISOString()
       };
     } catch (error) {
-      throw new Error(`Erreur statut IBKR: ${error?.message}`);
+      console.error('IBKR status service error:', error);
+      
+      return {
+        gateway_paper: {
+          status: 'exception',
+          endpoint: '127.0.0.1:7497',
+          error: error?.message
+        },
+        gateway_live: {
+          status: 'exception',
+          endpoint: '127.0.0.1:7496',
+          error: error?.message
+        },
+        lastUpdated: new Date()?.toISOString(),
+        is_exception_fallback: true
+      };
     }
   }
 };
+export function ibkrConnect(...args) {
+  // eslint-disable-next-line no-console
+  console.warn('Placeholder: ibkrConnect is not implemented yet.', args);
+  return null;
+}
+
+export function ibkrDisconnect(...args) {
+  // eslint-disable-next-line no-console
+  console.warn('Placeholder: ibkrDisconnect is not implemented yet.', args);
+  return null;
+}
+
+export function ibkrSubscribe(...args) {
+  // eslint-disable-next-line no-console
+  console.warn('Placeholder: ibkrSubscribe is not implemented yet.', args);
+  return null;
+}

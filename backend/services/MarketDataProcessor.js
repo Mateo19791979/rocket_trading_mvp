@@ -1,7 +1,7 @@
 import IB from 'ib';
 import http from 'http';
 import { WebSocket } from 'ws';
-const WebSocketServer = require('ws').Server;
+const WebSocketServer = require('ws')?.Server;
 import { supabase } from '../../src/lib/supabase';
 
 const {

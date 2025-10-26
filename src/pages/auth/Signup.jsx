@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
+    username: '',
     fullName: '',
     email: '',
     password: '',
@@ -24,20 +25,26 @@ const Signup = () => {
   };
 
   const validateForm = () => {
+    if (!formData?.username?.trim()) {
+      return 'Le nom d\'utilisateur est requis';
+    }
+    if (formData?.username?.trim()?.length < 3) {
+      return 'Le nom d\'utilisateur doit contenir au moins 3 caractères';
+    }
     if (!formData?.fullName?.trim()) {
-      return 'Full name is required';
+      return 'Le nom complet est requis';
     }
     if (!formData?.email?.trim()) {
-      return 'Email is required';
+      return 'L\'adresse email est requise';
     }
     if (!formData?.email?.includes('@')) {
-      return 'Please enter a valid email';
+      return 'Veuillez entrer une adresse email valide';
     }
     if (formData?.password?.length < 6) {
-      return 'Password must be at least 6 characters';
+      return 'Le mot de passe doit contenir au moins 6 caractères';
     }
     if (formData?.password !== formData?.confirmPassword) {
-      return 'Passwords do not match';
+      return 'Les mots de passe ne correspondent pas';
     }
     return null;
   };
@@ -56,27 +63,27 @@ const Signup = () => {
 
     try {
       const result = await signUp(formData?.email, formData?.password, {
-        full_name: formData?.fullName
+        full_name: formData?.fullName,
+        username: formData?.username
       });
       
       if (result?.success) {
-        // Show success message and redirect
         navigate('/auth/login', {
           state: { 
-            message: 'Account created successfully! Please sign in to continue.',
+            message: 'Compte créé avec succès ! Veuillez vous connecter pour continuer.',
             email: formData?.email
           }
         });
       } else {
-        setAuthError(result?.error || 'Signup failed');
+        setAuthError(result?.error || 'Erreur lors de la création du compte');
       }
     } catch (error) {
       if (error?.message?.includes('Failed to fetch') || 
           error?.message?.includes('AuthRetryableFetchError')) {
-        setAuthError('Cannot connect to authentication service. Your Supabase project may be paused or inactive. Please check your Supabase dashboard and resume your project if needed.');
+        setAuthError('Impossible de se connecter au service d\'authentification. Votre projet Supabase pourrait être en pause ou inactif. Veuillez vérifier votre tableau de bord Supabase.');
       } else {
-        setAuthError('Something went wrong. Please try again.');
-        console.error('JavaScript error in auth:', error);
+        setAuthError('Une erreur s\'est produite. Veuillez réessayer.');
+        console.error('Erreur JavaScript lors de l\'authentification:', error);
       }
     } finally {
       setIsLoading(false);
@@ -88,10 +95,10 @@ const Signup = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            Create your account
+            Créer votre compte
           </h2>
           <p className="mt-2 text-center text-sm text-gray-300">
-            Join the trading platform
+            Rejoignez la plateforme de trading
           </p>
         </div>
 
@@ -104,9 +111,9 @@ const Signup = () => {
                   type="button"
                   onClick={() => navigator?.clipboard?.writeText(authError)}
                   className="ml-2 text-red-400 hover:text-red-200 text-xs underline"
-                  title="Copy error message"
+                  title="Copier le message d'erreur"
                 >
-                  copy
+                  copier
                 </button>
               </div>
             </div>
@@ -114,8 +121,26 @@ const Signup = () => {
 
           <div className="space-y-4">
             <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+                Nom d'utilisateur
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Choisissez votre nom d'utilisateur"
+                value={formData?.username}
+                onChange={handleChange}
+                disabled={isLoading}
+              />
+              <p className="mt-1 text-xs text-gray-400">Minimum 3 caractères, sera votre identifiant unique</p>
+            </div>
+
+            <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-1">
-                Full Name
+                Nom complet
               </label>
               <input
                 id="fullName"
@@ -123,7 +148,7 @@ const Signup = () => {
                 type="text"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter your full name"
+                placeholder="Entrez votre nom complet"
                 value={formData?.fullName}
                 onChange={handleChange}
                 disabled={isLoading}
@@ -132,7 +157,7 @@ const Signup = () => {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
-                Email Address
+                Adresse email
               </label>
               <input
                 id="email"
@@ -141,7 +166,7 @@ const Signup = () => {
                 autoComplete="email"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter your email"
+                placeholder="Entrez votre adresse email"
                 value={formData?.email}
                 onChange={handleChange}
                 disabled={isLoading}
@@ -150,7 +175,7 @@ const Signup = () => {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
-                Password
+                Mot de passe
               </label>
               <input
                 id="password"
@@ -159,7 +184,7 @@ const Signup = () => {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Create a password (min. 6 characters)"
+                placeholder="Créez un mot de passe (min. 6 caractères)"
                 value={formData?.password}
                 onChange={handleChange}
                 disabled={isLoading}
@@ -168,7 +193,7 @@ const Signup = () => {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
-                Confirm Password
+                Confirmer le mot de passe
               </label>
               <input
                 id="confirmPassword"
@@ -177,7 +202,7 @@ const Signup = () => {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-800 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Confirm your password"
+                placeholder="Confirmez votre mot de passe"
                 value={formData?.confirmPassword}
                 onChange={handleChange}
                 disabled={isLoading}
@@ -191,25 +216,25 @@ const Signup = () => {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating account...' : 'Create account'}
+              {isLoading ? 'Création du compte...' : 'Créer le compte'}
             </button>
           </div>
 
           <div className="text-center">
-            <span className="text-gray-300">Already have an account? </span>
+            <span className="text-gray-300">Vous avez déjà un compte ? </span>
             <Link to="/auth/login" className="text-blue-400 hover:text-blue-300">
-              Sign in
+              Se connecter
             </Link>
           </div>
 
           {/* Feature Preview */}
           <div className="mt-6 p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-300 mb-2">🚀 What you'll get:</h3>
+            <h3 className="text-sm font-medium text-blue-300 mb-2">🚀 Ce que vous obtiendrez :</h3>
             <ul className="text-xs text-gray-300 space-y-1">
-              <li>• Real-time market data with Finnhub API</li>
-              <li>• Portfolio tracking and analytics</li>
-              <li>• AI-powered trading insights</li>
-              <li>• Advanced risk management tools</li>
+              <li>• Données de marché en temps réel avec l'API Finnhub</li>
+              <li>• Suivi de portefeuille et analyses</li>
+              <li>• Insights de trading alimentés par l'IA</li>
+              <li>• Outils avancés de gestion des risques</li>
             </ul>
           </div>
         </form>

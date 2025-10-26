@@ -14,7 +14,7 @@ const InteractiveRoadmapPanel = () => {
       description: "Intégration d'un moteur génératif pour créer automatiquement de nouvelles stratégies",
       status: "planned",
       priority: "haute",
-      timeline: "Q1 2024",
+      timeline: "Q1 2025",
       effort: "8 semaines",
       team: "AI/ML",
       icon: <Brain className="h-5 w-5" />,
@@ -34,7 +34,7 @@ const InteractiveRoadmapPanel = () => {
       description: "Développement d\'un système de backtesting massivement parallèle",
       status: "planned",
       priority: "haute",
-      timeline: "Q1-Q2 2024",
+      timeline: "Q1-Q2 2025",
       effort: "10 semaines",
       team: "Backend",
       icon: <TrendingUp className="h-5 w-5" />,
@@ -54,7 +54,7 @@ const InteractiveRoadmapPanel = () => {
       description: "Machine learning pour l\'allocation dynamique et l\'optimisation de portefeuille",
       status: "planned", 
       priority: "moyenne",
-      timeline: "Q2 2024",
+      timeline: "Q2 2025",
       effort: "12 semaines",
       team: "AI/ML + Quant",
       icon: <Layers className="h-5 w-5" />,
@@ -74,7 +74,7 @@ const InteractiveRoadmapPanel = () => {
       description: "Système de contrôle des risques avec métriques avancées et kill-switch automatique",
       status: "planned",
       priority: "haute", 
-      timeline: "Q2-Q3 2024",
+      timeline: "Q2-Q3 2025",
       effort: "6 semaines",
       team: "Risk + Backend",
       icon: <AlertCircle className="h-5 w-5" />,
@@ -94,7 +94,7 @@ const InteractiveRoadmapPanel = () => {
       description: "Interface utilisateur complète avec génération automatique de rapports",
       status: "planned",
       priority: "moyenne",
-      timeline: "Q3 2024", 
+      timeline: "Q3 2025", 
       effort: "4 semaines",
       team: "Frontend + DevOps",
       icon: <Target className="h-5 w-5" />,
@@ -129,9 +129,9 @@ const InteractiveRoadmapPanel = () => {
 
   const timeframes = [
     { id: 'all', label: 'Tout' },
-    { id: 'q1', label: 'Q1 2024' },
-    { id: 'q2', label: 'Q2 2024' },
-    { id: 'q3', label: 'Q3 2024' }
+    { id: 'q1', label: 'Q1 2025' },
+    { id: 'q2', label: 'Q2 2025' },
+    { id: 'q3', label: 'Q3 2025' }
   ];
 
   const filteredItems = activeTimeframe === 'all' 
@@ -286,7 +286,7 @@ const InteractiveRoadmapPanel = () => {
           <div className="text-xs text-gray-400">Priorité Haute</div>
         </div>
         <div className="bg-gray-900/50 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-blue-400">Q3 2024</div>
+          <div className="text-2xl font-bold text-blue-400">Q4 2025</div>
           <div className="text-xs text-gray-400">Fin Prévue</div>
         </div>
       </div>

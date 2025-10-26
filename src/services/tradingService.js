@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import * as TradingAnalytics from './tradingAnalyticsService';
 
 export const tradingService = {
   // Get market quotes with real-time updates - removed mock data fallback
@@ -200,6 +201,82 @@ export const tradingService = {
         logo_url: position?.asset?.logo_url,
         sector: position?.asset?.sector
       })) || [];
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Nouvelle méthode: Obtenir les statistiques rapides du jour
+  async getTodayQuickStats(userId) {
+    if (!userId) {
+      // Si pas d'utilisateur, essayer de récupérer les stats globales
+      try {
+        const { tradingAnalyticsService } = TradingAnalytics;
+        return await tradingAnalyticsService?.getCompleteTradingReport();
+      } catch (error) {
+        throw new Error('Impossible de récupérer les statistiques du jour');
+      }
+    }
+
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today?.getFullYear(), today?.getMonth(), today?.getDate());
+      
+      // Récupérer les trades du jour avec plus de détails pour le calcul du succès
+      const { data: trades, error: tradesError } = await supabase
+        ?.from('trades')
+        ?.select(`
+          id,
+          quantity,
+          price,
+          trade_side,
+          executed_at,
+          realized_pnl,
+          unrealized_pnl,
+          asset:assets (symbol)
+        `)
+        ?.eq('user_id', userId)
+        ?.gte('executed_at', startOfDay?.toISOString());
+
+      if (tradesError) throw tradesError;
+
+      // Récupérer le portfolio pour les PnL
+      const { data: portfolio, error: portfolioError } = await supabase
+        ?.from('portfolios')
+        ?.select('realized_pnl, unrealized_pnl, total_value')
+        ?.eq('user_id', userId)
+        ?.eq('is_default', true)
+        ?.single();
+
+      if (portfolioError) throw portfolioError;
+
+      // Calculer le taux de réussite basé sur le PnL réalisé de chaque trade
+      let successRate = 0;
+      if (trades?.length > 0) {
+        const winningTrades = trades?.filter(trade => 
+          (trade?.realized_pnl || 0) > 0
+        )?.length;
+        successRate = (winningTrades / trades?.length) * 100;
+      }
+
+      return {
+        tradesCount: trades?.length || 0,
+        totalPnL: (portfolio?.realized_pnl || 0) + (portfolio?.unrealized_pnl || 0),
+        realizedPnL: portfolio?.realized_pnl || 0,
+        unrealizedPnL: portfolio?.unrealized_pnl || 0,
+        portfolioValue: portfolio?.total_value || 0,
+        successRate: successRate,
+        trades: trades?.slice(0, 5)?.map(trade => ({
+          id: trade?.id,
+          symbol: trade?.asset?.symbol,
+          side: trade?.trade_side,
+          quantity: trade?.quantity,
+          price: trade?.price,
+          pnl: trade?.realized_pnl || 0,
+          time: trade?.executed_at
+        })) || [],
+        timestamp: new Date()?.toISOString()
+      };
     } catch (error) {
       throw error;
     }

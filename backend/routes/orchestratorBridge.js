@@ -28,8 +28,7 @@ function guard(req, res, next) {
     next();
 }
 
-// 1) Assistant/Console envoie un ordre à l'orchestrateur 
-bridge.post('/enqueue', guard, async (req, res) => {
+// 1) Assistant/Console envoie un ordre à l'orchestrateur bridge.post('/enqueue', guard, async (req, res) => {
     try {
         const { 
             channel = 'default', 

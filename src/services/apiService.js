@@ -1,10 +1,26 @@
 // Centralized API service for Trading MVP using environment variable
-const API_BASE = import.meta.env?.VITE_API_BASE || import.meta.env?.VITE_MVP_API_BASE || 'https://api.trading-mvp.com';
+const API_BASE = import.meta.env?.VITE_API_BASE || localStorage.getItem('validated_api_base') || window.origin;
 
 class TradingApiService {
   constructor() {
-    this.baseURL = API_BASE;
+    // STEP 2 - Force la priorité VITE_API_BASE en premier
+    this.baseURL = import.meta.env?.VITE_API_BASE || localStorage.getItem('validated_api_base') || window.origin;
     this.timeout = 10000;
+    
+    // Post-render localStorage injection
+    this.injectApiBase();
+  }
+  
+  // STEP 4 - Injection localStorage post-render
+  injectApiBase() {
+    if (import.meta.env?.VITE_API_BASE) {
+      try {
+        localStorage.setItem('validated_api_base', import.meta.env?.VITE_API_BASE);
+        localStorage.setItem('validated_api_base_timestamp', Date.now()?.toString());
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+    }
   }
 
   async makeRequest(endpoint, options = {}) {

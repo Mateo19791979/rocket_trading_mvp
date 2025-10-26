@@ -450,16 +450,49 @@ export class KnowledgePipelineService {
 
   async uploadPdfDocument(file, metadata = {}) {
     try {
-      const userId = (await supabase?.auth?.getUser())?.data?.user?.id;
+      // Handle mock/demo mode
+      const authResult = await supabase?.auth?.getUser();
+      const userId = authResult?.data?.user?.id;
       
+      // For demo/mock mode, allow uploads with a mock user ID
+      let finalUserId = userId;
       if (!userId) {
-        throw new Error('User not authenticated');
+        // Check if we're in a demo environment by looking for demo indicators
+        const isDemoMode = metadata?.isDemoMode || metadata?.isMockMode;
+        if (isDemoMode) {
+          finalUserId = 'demo-user-123e4567-e89b-12d3-a456-426614174000';
+          console.log('📝 Upload in demo mode, using mock user ID');
+        } else {
+          throw new Error('User not authenticated');
+        }
       }
 
       // Generate unique filename
       const timestamp = new Date()?.getTime();
       const cleanFilename = file?.name?.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `${userId}/documents/${timestamp}_${cleanFilename}`;
+      const filePath = `${finalUserId}/documents/${timestamp}_${cleanFilename}`;
+
+      // In demo mode, simulate the upload without actually uploading to storage
+      if (metadata?.isDemoMode || metadata?.isMockMode) {
+        // Simulate upload delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        return {
+          success: true,
+          data: {
+            bookId: `demo-book-${timestamp}`,
+            filePath,
+            title: metadata?.title || file?.name?.replace(/\.[^/.]+$/, ''),
+            status: 'uploaded',
+            mode: 'demo'
+          }
+        };
+      }
+
+      // Regular upload flow for authenticated users
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
 
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase?.storage
@@ -480,7 +513,7 @@ export class KnowledgePipelineService {
           file_size: file?.size,
           document_format: 'pdf',
           processing_status: 'pending',
-          user_id: userId,
+          user_id: finalUserId,
           isbn: metadata?.isbn || null,
           publication_year: metadata?.publication_year || null,
           metadata: {

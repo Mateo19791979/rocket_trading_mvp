@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Eye, AlertTriangle, Filter, Download, Search } from 'lucide-react';
+import { Activity, AlertTriangle, Filter, Search } from 'lucide-react';
 import { aiAgentsService } from '../../services/aiAgentsService';
 import LiveActivityFeed from './components/LiveActivityFeed';
 import AgentBehaviorAnalytics from './components/AgentBehaviorAnalytics';
 import DecisionTrackingPanel from './components/DecisionTrackingPanel';
 import AnomalyDetectionDashboard from './components/AnomalyDetectionDashboard';
 import CommunicationMonitor from './components/CommunicationMonitor';
+import MarketClosedBanner from '@/components/ui/MarketClosedBanner';
 
 export default function RealTimeAgentActivityMonitor() {
   const [agents, setAgents] = useState({});
@@ -179,38 +180,18 @@ export default function RealTimeAgentActivityMonitor() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Eye className="w-8 h-8 text-purple-400" />
-            <div>
-              <h1 className="text-2xl font-bold text-white">Real-time Agent Activity Monitor</h1>
-              <p className="text-gray-400">Granular visibility into individual agent behaviors and decisions</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span>Live Monitoring</span>
-              </div>
-              <span className="text-gray-400">|</span>
-              <span>Activities: {metrics?.totalActivities}</span>
-              <span className="text-gray-400">|</span>
-              <span>Active: {metrics?.activeAgents} agents</span>
-            </div>
-            <button
-              onClick={exportActivityData}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export Data</span>
-            </button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Add weekend mode banner at the top */}
+      <MarketClosedBanner />
+      
+      {/* Existing header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Real-time Agent Activity Monitor</h1>
+        <p className="mt-2 text-gray-600">
+          Monitor AI agent activities, communications, and decision-making processes in real-time
+        </p>
       </div>
+
       {/* Filters and Search */}
       <div className="bg-gray-800 px-6 py-3 border-b border-gray-700">
         <div className="flex items-center justify-between">

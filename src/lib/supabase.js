@@ -1,78 +1,48 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment configuration
-const VITE_SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL;
-const VITE_SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 
-// Check if environment variables are set
-if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
-  console.error('Missing Supabase environment variables. Please check your .env file.');
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Mock demo user for development/testing
-const DEMO_USER = {
-  id: '123e4567-e89b-12d3-a456-426614174000',
-  email: 'demo@trading-mvp.com',
-  user_metadata: {
-    full_name: 'Demo User',
-    role: 'admin'
+// Fonction utilitaire pour exécuter du SQL direct
+export const executeSQL = async (query) => {
+  try {
+    const { data, error } = await supabase?.rpc('sql', { query });
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('SQL Error:', err);
+    return { data: null, error: err };
   }
 };
 
-// Create Supabase client if environment variables are available
-let supabaseClient = null;
-try {
-  if (VITE_SUPABASE_URL && VITE_SUPABASE_ANON_KEY) {
-    supabaseClient = createClient(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 2
-        }
+// Fonction pour les vérifications de diagnostic
+export const runDiagnosticQuery = async (query) => {
+  try {
+    // Essayer d'abord avec une requête directe
+    const { data, error } = await supabase?.from('pg_stat_user_tables')?.select('*')?.limit(1);
+    
+    if (error) {
+      // Fallback : utiliser une fonction RPC si elle existe
+      const { data: rpcData, error: rpcError } = await supabase?.rpc('execute_diagnostic_query', { sql_query: query });
+      if (rpcError) throw rpcError;
+      return { data: rpcData, error: null };
+    }
+    
+    // Si la requête de test fonctionne, exécuter la vraie requête
+    const { data: result, error: queryError } = await supabase?.rpc('sql', { query });
+    if (queryError) throw queryError;
+    
+    return { data: result, error: null };
+  } catch (err) {
+    console.error('Diagnostic Query Error:', err);
+    return { 
+      data: null, 
+      error: { 
+        message: err?.message || 'Erreur lors de l\'exécution de la requête',
+        details: err
       }
-    });
-  }
-} catch (error) {
-  console.warn('Failed to initialize Supabase client:', error);
-}
-
-// Export with fallback handling
-export const supabase = supabaseClient;
-
-// Mock authentication for development/testing
-export const mockAuth = {
-  // Check if we should use mock mode (when Supabase is not available)
-  isMockMode: !supabaseClient,
-  
-  // Mock user session
-  mockSession: {
-    user: DEMO_USER,
-    access_token: 'mock_token_' + Date.now()
-  },
-  
-  // Get current user (mock or real)
-  async getUser() {
-    if (this.isMockMode) {
-      return {
-        data: { user: this.mockSession?.user },
-        error: null
-      };
-    }
-    return await supabaseClient?.auth?.getUser();
-  },
-  
-  // Get current session (mock or real)
-  async getSession() {
-    if (this.isMockMode) {
-      return {
-        data: { session: this.mockSession },
-        error: null
-      };
-    }
-    return await supabaseClient?.auth?.getSession();
+    };
   }
 };

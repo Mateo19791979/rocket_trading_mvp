@@ -6,6 +6,13 @@ class ProviderRouterService {
   constructor() {
     this.baseURL = `${API_BASE_URL}/providers`;
     this.timeout = 10000;
+    
+    // Prioritize environment variables over database config
+    this.apiKeys = {
+      finnhub: import.meta.env?.VITE_FINNHUB_API_KEY || process.env?.FINNHUB_API_KEY,
+      alphavantage: import.meta.env?.VITE_ALPHAVANTAGE_API_KEY || process.env?.ALPHAVANTAGE_API_KEY,
+      twelvedata: import.meta.env?.VITE_TWELVEDATA_API_KEY || process.env?.TWELVEDATA_API_KEY
+    };
   }
 
   // Get real-time quotes with automatic provider failover
@@ -26,7 +33,8 @@ class ProviderRouterService {
           market,
           src: source
         },
-        timeout: this.timeout
+        timeout: this.timeout,
+        headers: this.getAuthHeaders()
       });
 
       return {
@@ -61,7 +69,8 @@ class ProviderRouterService {
           asset,
           src: source
         },
-        timeout: this.timeout
+        timeout: this.timeout,
+        headers: this.getAuthHeaders()
       });
 
       return {
@@ -85,7 +94,8 @@ class ProviderRouterService {
   async getProviderHealth() {
     try {
       const response = await axios?.get(`${this.baseURL}/health`, {
-        timeout: this.timeout
+        timeout: this.timeout,
+        headers: this.getAuthHeaders()
       });
 
       return {
@@ -93,7 +103,8 @@ class ProviderRouterService {
         data: {
           overall_status: response?.data?.overall_status,
           providers: response?.data?.providers || [],
-          timestamp: response?.data?.timestamp
+          timestamp: response?.data?.timestamp,
+          api_keys_configured: this.getApiKeysStatus()
         }
       };
 
@@ -106,7 +117,8 @@ class ProviderRouterService {
   async getProviderConfig() {
     try {
       const response = await axios?.get(`${this.baseURL}/config`, {
-        timeout: this.timeout
+        timeout: this.timeout,
+        headers: this.getAuthHeaders()
       });
 
       return {
@@ -131,7 +143,8 @@ class ProviderRouterService {
         provider_name: providerName,
         symbol
       }, {
-        timeout: this.timeout
+        timeout: this.timeout,
+        headers: this.getAuthHeaders()
       });
 
       return {
@@ -168,6 +181,33 @@ class ProviderRouterService {
     } catch (error) {
       return this.handleError(error, 'Failed to fetch system status');
     }
+  }
+
+  // NEW: Get API keys configuration status
+  getApiKeysStatus() {
+    return {
+      finnhub: !!this.apiKeys?.finnhub && this.apiKeys?.finnhub !== 'REPLACE_ME',
+      alphavantage: !!this.apiKeys?.alphavantage && this.apiKeys?.alphavantage !== 'REPLACE_ME',
+      twelvedata: !!this.apiKeys?.twelvedata && this.apiKeys?.twelvedata !== 'REPLACE_ME'
+    };
+  }
+
+  // NEW: Get authentication headers with API keys
+  getAuthHeaders() {
+    const headers = {};
+    
+    // Add API keys as headers if available
+    if (this.apiKeys?.finnhub) {
+      headers['X-Finnhub-Token'] = this.apiKeys?.finnhub;
+    }
+    if (this.apiKeys?.alphavantage) {
+      headers['X-AlphaVantage-Key'] = this.apiKeys?.alphavantage;
+    }
+    if (this.apiKeys?.twelvedata) {
+      headers['X-TwelveData-Key'] = this.apiKeys?.twelvedata;
+    }
+    
+    return headers;
   }
 
   // Utility: Extract provider sources from quotes response

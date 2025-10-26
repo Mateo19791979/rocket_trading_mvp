@@ -74,19 +74,84 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.24);
   }
 
-  /* Animation Utilities */
+  /* Stable Animation Utilities - Reduced to prevent trembling */
   .transition-trading {
-    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .transition-trading-fast {
-    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Stability-focused transitions */
+  .transition-stable {
+    transition: all 200ms ease-out;
+  }
+
+  .transition-none {
+    transition: none !important;
+  }
+
+  /* Reduced opacity animations to prevent visual trembling */
+  .animate-pulse-stable {
+    animation: pulse-stable 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-stable {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* Stable spin animation - slower to prevent dizziness */
+  .animate-spin-stable {
+    animation: spin-stable 2s linear infinite;
+  }
+
+  @keyframes spin-stable {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Anti-trembling utilities */
+  .stable-element {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: auto;
+  }
+
+  .no-flicker {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Stable layout utilities */
+  .layout-stable {
+    contain: layout style;
+    transform: translateZ(0);
+  }
+
+  /* Override default animations for stability */
+  .animate-none {
+    animation: none !important;
+  }
+
+  .transform-none {
+    transform: none !important;
   }
 }
 
 @layer utilities {
+  /* Enhanced slide animations with stability focus */
   .animate-slide-in-right {
-    animation: slide-in-right 0.3s ease-out;
+    animation: slide-in-right 0.2s ease-out;
   }
 
   @keyframes slide-in-right {
@@ -100,5 +165,183 @@
     }
   }
 
-  /* ... keep other existing animations ... */
+  .animate-slide-in-left {
+    animation: slide-in-left 0.2s ease-out;
+  }
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Stable fade animations */
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-out {
+    animation: fade-out 0.2s ease-out;
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* Stable bounce animation - reduced intensity */
+  .animate-bounce-stable {
+    animation: bounce-stable 1.5s infinite;
+  }
+
+  @keyframes bounce-stable {
+    0%, 100% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+    50% {
+      transform: translateY(-10px);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+  }
+
+  /* Stability override classes */
+  .stable-mode {
+    animation: none !important;
+    transition: all 0.15s ease-out !important;
+    will-change: auto !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .stable-mode * {
+    animation: none !important;
+    transition: all 0.15s ease-out !important;
+  }
+
+  /* GPU acceleration for smooth rendering */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  /* Performance optimization utilities */
+  .optimize-rendering {
+    contain: strict;
+    content-visibility: auto;
+    transform: translateZ(0);
+  }
+
+  /* Reduced motion preference support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Prevent layout shift utilities */
+  .prevent-layout-shift {
+    aspect-ratio: 1;
+    contain: layout style paint;
+  }
+
+  .stable-width {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .stable-height {
+    min-height: 0;
+    height: auto;
+  }
+
+  /* Text stability utilities */
+  .text-stable {
+    text-rendering: optimizeSpeed;
+    font-variant-ligatures: none;
+  }
+
+  /* Image stability utilities */
+  .img-stable {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+/* Stability overrides for specific components */
+@layer components {
+  .stable-card {
+    @apply stable-element no-flicker layout-stable;
+    transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out;
+  }
+
+  .stable-button {
+    @apply stable-element;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+  }
+
+  .stable-button:active {
+    transform: translateY(1px);
+  }
+
+  .stable-input {
+    @apply stable-element;
+    transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  }
+
+  .stable-modal {
+    @apply stable-element;
+    animation: modal-appear 0.2s ease-out;
+  }
+
+  @keyframes modal-appear {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Dropdown stability */
+  .stable-dropdown {
+    @apply stable-element;
+    animation: dropdown-appear 0.15s ease-out;
+    transform-origin: top;
+  }
+
+  @keyframes dropdown-appear {
+    from {
+      opacity: 0;
+      transform: scaleY(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
 }

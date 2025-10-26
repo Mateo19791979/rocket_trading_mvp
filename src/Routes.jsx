@@ -1,443 +1,451 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { useRouteError } from 'react-router-dom';
-import Shell from './components/Shell';
-import HardErrorBoundary from './shared/HardErrorBoundary';
+import React, { Suspense, useState, useEffect } from 'react';
+import { BrowserRouter, Routes as RouterRoutes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
+import ScrollToTop from './components/ScrollToTop';
 
-function safeLazy(loader, pick) {
-  return React.lazy(async () => {
-    const m = await loader();
-    const comp =
-      (m && (m?.default && typeof m?.default === 'function' ? m?.default : null)) ||
-      (pick ? pick(m) : Object.values(m)?.find(v => typeof v === 'function'));
-    if (!comp) {
-      throw new Error('Component not found in module (lazy import returned no React component).');
-    }
-    return { default: comp };
-  });
-}
+// Fix inconsistent imports - standardize to relative paths
+import OfflineRecoveryCenter from './pages/offline-recovery-center';
+import Diagnostic6Verifications from './pages/diagnostic-6-verifications';
+import DiagnosticFinalChecks from './pages/diagnostic-5-checks-final';
 
-const Home        = lazy(()=>import('./pages/HomeLite'));
-const PageRegion  = lazy(()=>import('./pages/PageRegion'));
-const Resilience  = lazy(()=>import('./pages/Resilience'));
-const Logs        = lazy(()=>import('./pages/Logs'));
-const Settings    = lazy(()=>import('./pages/Settings'));
-const SafeLanding = lazy(()=>import('./pages/SafeLanding'));
+// Lazy load components for better performance
+const Dashboard = React.lazy(() => import('./pages/dashboard'));
+const SystemStatus = React.lazy(() => import('./pages/system-status'));
+const TradingMVPLandingPage = React.lazy(() => import('./pages/trading-mvp-landing-page'));
+const UnifiedDashboard = React.lazy(() => import('./pages/unified-dashboard'));
+const NotFound = React.lazy(() => import('./pages/NotFound'));
 
-// AI System Status - Using safeLazy to prevent #130 error
-const AISystemStatus = safeLazy(() => import('./pages/AISystemStatus'));
+// AI & Agent Management
+const AISystemStatus = React.lazy(() => import('./pages/ai-system-status'));
+const AIAgents = React.lazy(() => import('./pages/ai-agents'));
+const AgentRoster = React.lazy(() => import('./pages/agent-roster'));
+const RealTimeAgentPerformance = React.lazy(() => import('./pages/real-time-agent-performance'));
+const InternalAgentsRegistry = React.lazy(() => import('./pages/internal-agents-registry'));
+const AIAgentOrchestrationCommandCenter = React.lazy(() => import('./pages/ai-agent-orchestration-command-center'));
+const AIAgentEmergencyResponseCenter = React.lazy(() => import('./pages/ai-agent-emergency-response-center'));
+const RealTimeAgentActivityMonitor = React.lazy(() => import('./pages/real-time-agent-activity-monitor'));
+const AISwarmHub = React.lazy(() => import('./pages/ai-swarm-hub'));
 
-// NEW: Regional AI Command Center Pages
-const EuropeRegionalCommandCenter = lazy(() => import('./pages/europe-regional-command-center/index.jsx'));
-const USRegionalCommandCenter = lazy(() => import('./pages/us-regional-command-center/index.jsx'));
-const AsiaRegionalCommandCenter = lazy(() => import('./pages/asia-regional-command-center/index.jsx'));
+// AI Paper Trading Deployment Orchestrator - NEW
+const AIPaperTradingDeploymentOrchestrator = React.lazy(() => import('./pages/ai-paper-trading-deployment-orchestrator'));
 
-// ROLLBACK STABLE: Regional Trading Command Centers (Non-intrusive)
-const EURegionalTradingCommandCenterRollbackStable = lazy(() => import('./pages/eu-regional-trading-command-center-rollback-stable/index.jsx'));
-const USRegionalTradingCommandCenterRollbackStable = lazy(() => import('./pages/us-regional-trading-command-center-rollback-stable/index.jsx'));
-const AsiaRegionalTradingCommandCenterRollbackStable = lazy(() => import('./pages/asia-regional-trading-command-center-rollback-stable/index.jsx'));
+// IA Exploration Totale Freedom v4 - NEW
+const IAExplorationTotaleFreedomV4CognitiveEngine = React.lazy(() => import('./pages/ia-exploration-totale-freedom-v4-cognitive-engine'));
+const IFRSFiscalIntelligenceIntegrationCenter = React.lazy(() => import('./pages/ifrs-fiscal-intelligence-integration-center'));
 
-// Existing application pages - Lazy loaded for performance
-const Dashboard = lazy(() => import('./pages/dashboard/index.jsx'));
-const NotFound = lazy(() => import('./pages/NotFound'));
+// Trading & Portfolio Management
+const MarketAnalysis = React.lazy(() => import('./pages/market-analysis'));
+const PortfolioViewEnhanced = React.lazy(() => import('./pages/portfolio-view-enhanced'));
+const PortfolioConsolidatedView = React.lazy(() => import('./pages/portfolio-consolidated-view'));
+const StrategyManagement = React.lazy(() => import('./pages/strategy-management'));
+const PaperTrading = React.lazy(() => import('./pages/paper-trading'));
+const OptionsStrategyAI = React.lazy(() => import('./pages/options-strategy-ai'));
+const OptionsScreeningIntelligenceHub = React.lazy(() => import('./pages/options-screening-intelligence-hub'));
+const CorrelationHunter = React.lazy(() => import('./pages/correlation-hunter'));
+const StrategyRegistryBuilder = React.lazy(() => import('./pages/strategy-registry-builder'));
+const GeneticStrategyEvolutionLaboratory = React.lazy(() => import('./pages/genetic-strategy-evolution-laboratory'));
+const LiveTradingOrchestrationCenter = React.lazy(() => import('./pages/live-trading-orchestration-center'));
 
-// Auth Pages
-const Login = lazy(() => import('./pages/auth/Login'));
-const Signup = lazy(() => import('./pages/auth/Signup'));
-const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
-
-// Trading & Portfolio
-const MarketAnalysis = lazy(() => import('./pages/market-analysis/index.jsx'));
-const PaperTrading = lazy(() => import('./pages/paper-trading/index.jsx'));
-const PortfolioViewEnhanced = lazy(() => import('./pages/portfolio-view-enhanced/index.jsx'));
-const PortfolioConsolidatedView = lazy(() => import('./pages/portfolio-consolidated-view/index.jsx'));
-const StrategyManagement = lazy(() => import('./pages/strategy-management/index.jsx'));
-
-// AI & Agents
-const AIAgents = lazy(() => import('./pages/ai-agents/index.jsx'));
-const AgentRoster = lazy(() => import('./pages/agent-roster/index.jsx'));
-const InternalAgentsRegistry = lazy(() => import('./pages/internal-agents-registry/index.jsx'));
-const RealTimeAgentPerformance = lazy(() => import('./pages/real-time-agent-performance/index.jsx'));
-const RealTimeAgentActivityMonitor = lazy(() => import('./pages/real-time-agent-activity-monitor/index.jsx'));
-
-// AI Advanced Features
-const AIAgentEmergencyResponseCenter = lazy(() => import('./pages/ai-agent-emergency-response-center/index.jsx'));
-const AIAgentOrchestrationCommandCenter = lazy(() => import('./pages/ai-agent-orchestration-command-center/index.jsx'));
-const AIConsciousnessDecisionIntelligenceHub = lazy(() => import('./pages/ai-consciousness-decision-intelligence-hub/index.jsx'));
-const AIChiefsChatInterface = lazy(() => import('./pages/ai-chiefs-chat-interface/index.jsx'));
-const AILearningCritiqueCenter = lazy(() => import('./pages/ai-learning-critique-center/index.jsx'));
-
-// System & Infrastructure
-const SystemStatus = lazy(() => import('./pages/system-status/index.jsx'));
-const SystemRecoveryOptimizationCenter = lazy(() => import('./pages/system-recovery-optimization-center/index.jsx'));
-const SystemDiagnosticPost502Fix = lazy(() => import('./pages/system-diagnostic-post-502-fix/index.jsx'));
-const SelfHealingOrchestrationDashboard = lazy(() => import('./pages/self-healing-orchestration-dashboard/index.jsx'));
-
-// Monitoring & Observability
-const MonitoringControlCenter = lazy(() => import('./pages/monitoring-control-center/index.jsx'));
-const BusMonitor = lazy(() => import('./pages/bus-monitor/index.jsx'));
-const OrchestratorDashboard = lazy(() => import('./pages/orchestrator-dashboard/index.jsx'));
-const ProductionMonitoringDashboardWithGrafanaIntegration = lazy(() => import('./pages/production-monitoring-dashboard-with-grafana-integration/index.jsx'));
-const HealthSentinelObservabilityCommand = lazy(() => import('./pages/health-sentinel-observability-command/index.jsx'));
-
-// Security & RLS
-const SupabaseRlsSecurityConfigurationCenter = lazy(() => import('./pages/supabase-rls-security-configuration-center/index.jsx'));
-const SupabaseHardeningExpressPlan = lazy(() => import('./pages/supabase-hardening-express-plan/index.jsx'));
-const ParanoidSecurityAuditComplianceCenter = lazy(() => import('./pages/paranoid-security-audit-compliance-center/index.jsx'));
-const AdvancedAiSecurityThreatIntelligenceCenter = lazy(() => import('./pages/advanced-ai-security-threat-intelligence-center/index.jsx'));
-const RlsDiagnosticExpress = lazy(() => import('./pages/rls-diagnostic-express/index.jsx'));
-const GlobalAiTraderSecurityConfiguration = lazy(() => import('./pages/global-ai-trader-security-configuration/index.jsx'));
+// Risk & Security Management
+const RiskControllerDashboard = React.lazy(() => import('./pages/risk-controller-dashboard'));
+const SupabaseRlsSecurityConfigurationCenter = React.lazy(() => import('./pages/supabase-rls-security-configuration-center'));
+const SupabaseHardeningExpressPlan = React.lazy(() => import('./pages/supabase-hardening-express-plan'));
+const ParanoidSecurityAuditComplianceCenter = React.lazy(() => import('./pages/paranoid-security-audit-compliance-center'));
+const AdvancedAISecurityThreatIntelligenceCenter = React.lazy(() => import('./pages/advanced-ai-security-threat-intelligence-center'));
+const GitSecurityCleanupDocumentation = React.lazy(() => import('./pages/git-security-cleanup-documentation'));
 
 // Research & Innovation
-const ResearchInnovationCenter = lazy(() => import('./pages/research-innovation-center/index.jsx'));
-const KnowledgePipelineManagementCenter = lazy(() => import('./pages/knowledge-pipeline-management-center/index.jsx'));
-const KnowledgePlaybooksHub = lazy(() => import('./pages/knowledge-playbooks-hub/index.jsx'));
-const AgentKnowledgeQueryInterface = lazy(() => import('./pages/agent-knowledge-query-interface/index.jsx'));
+const ResearchInnovationCenter = React.lazy(() => import('./pages/research-innovation-center'));
+const AILearningCritiqueCenter = React.lazy(() => import('./pages/ai-learning-critique-center'));
+const KnowledgePipelineManagementCenter = React.lazy(() => import('./pages/knowledge-pipeline-management-center'));
+const AgentKnowledgeQueryInterface = React.lazy(() => import('./pages/agent-knowledge-query-interface'));
+const RAGKnowledgeBaseDashboard = React.lazy(() => import('./pages/rag-knowledge-base-dashboard'));
+const KnowledgePlaybooksHub = React.lazy(() => import('./pages/knowledge-playbooks-hub'));
+const AIKnowledgeVectorManagement = React.lazy(() => import('./pages/ai-knowledge-vector-management'));
+const HybridRAGDynamicIntelligenceOrchestrator = React.lazy(() => import('./pages/hybrid-rag-dynamic-intelligence-orchestrator'));
 
-// Data & Analytics
-const TgeAlphaIntelligenceCenter = lazy(() => import('./pages/tge-alpha-intelligence-center/index.jsx'));
-const TgeIntelligenceRewardsCenter = lazy(() => import('./pages/tge-intelligence-rewards-center/index.jsx'));
-const CorrelationHunter = lazy(() => import('./pages/correlation-hunter/index.jsx'));
-const RagKnowledgeBaseDashboard = lazy(() => import('./pages/rag-knowledge-base-dashboard/index.jsx'));
-const AIKnowledgeVectorManagement = lazy(() => import('./pages/ai-knowledge-vector-management/index.jsx'));
+// Monitoring & Control
+const MonitoringControlCenter = React.lazy(() => import('./pages/monitoring-control-center'));
+const SelfHealingOrchestrationDashboard = React.lazy(() => import('./pages/self-healing-orchestration-dashboard'));
+const BusMonitor = React.lazy(() => import('./pages/bus-monitor'));
+const OrchestratorDashboard = React.lazy(() => import('./pages/orchestrator-dashboard'));
+const SystemRecoveryOptimizationCenter = React.lazy(() => import('./pages/system-recovery-optimization-center'));
+const HealthSentinelObservabilityCommand = React.lazy(() => import('./pages/health-sentinel-observability-command'));
+const ProductionMonitoringDashboardWithGrafanaIntegration = React.lazy(() => import('./pages/production-monitoring-dashboard-with-grafana-integration'));
 
-// Options & Strategies
-const OptionsStrategyAi = lazy(() => import('./pages/options-strategy-ai/index.jsx'));
-const OptionsScreeningIntelligenceHub = lazy(() => import('./pages/options-screening-intelligence-hub/index.jsx'));
-const GeneticStrategyEvolutionLaboratory = lazy(() => import('./pages/genetic-strategy-evolution-laboratory/index.jsx'));
-const StrategyRegistryBuilder = lazy(() => import('./pages/strategy-registry-builder/index.jsx'));
+// AAS (Autonomous AI Speculation) Systems
+const AASProductionControlCenter = React.lazy(() => import('./pages/aas-production-control-center'));
+const AASGeniusPackControlCenter = React.lazy(() => import('./pages/aas-genius-pack-control-center'));
+const AASEmergencyResponseKillSwitchCenter = React.lazy(() => import('./pages/aas-emergency-response-kill-switch-center'));
+const AASLevel5ProductionCertificationCommandCenter = React.lazy(() => import('./pages/aas-level-5-production-certification-command-center'));
+const AASRealTimeAIThoughtsObservatory = React.lazy(() => import('./pages/aas-real-time-ai-thoughts-observatory'));
+const AutonomousAISpeculationAASEvolutionCenter = React.lazy(() => import('./pages/autonomous-ai-speculation-aas-evolution-center'));
+const AutonomousAIHedgeFundLevel = React.lazy(() => import('./pages/autonomous-ai-hedge-fund-level'));
 
-// Trading Infrastructure
-const IBKRClientPortalGatewayIntegrationCenter = lazy(() => import('./pages/ibkr-client-portal-gateway-integration-center/index.jsx'));
-const ProviderRouterDashboard = lazy(() => import('./pages/provider-router-dashboard/index.jsx'));
-const ProviderConfigurationManagementCenter = lazy(() => import('./pages/provider-configuration-management-center/index.jsx'));
-const GoogleFinanceIntegration = lazy(() => import('./pages/google-finance-integration/index.jsx'));
+// Data Processing & Intelligence
+const GoogleFinanceIntegration = React.lazy(() => import('./pages/google-finance-integration'));
+const WeeklyPdfReports = React.lazy(() => import('./pages/weekly-pdf-reports'));
+const PDFDocumentIngestionInterface = React.lazy(() => import('./pages/pdf-document-ingestion-interface'));
+const PDFIngestionProcessingCenter = React.lazy(() => import('./pages/pdf-ingestion-processing-center'));
+const PipelineBooksRegistryOrchestrator = React.lazy(() => import('./pages/pipeline-books-registry-orchestrator'));
+const OpenAccessFeederPipeline = React.lazy(() => import('./pages/open-access-feeder-pipeline'));
+const FusionOAFeederPrivateCorpus = React.lazy(() => import('./pages/fusion-oa-feeder-private-corpus'));
+const PrivateCorpusManagement = React.lazy(() => import('./pages/private-corpus-management'));
 
-// Risk Management
-const RiskControllerDashboard = lazy(() => import('./pages/risk-controller-dashboard/index.jsx'));
-const ShadowPriceAnomalyDetectionCenter = lazy(() => import('./pages/shadow-price-anomaly-detection-center/index.jsx'));
+// Provider & Integration Management
+const ProviderRouterDashboard = React.lazy(() => import('./pages/provider-router-dashboard'));
+const ProviderConfigurationManagementCenter = React.lazy(() => import('./pages/provider-configuration-management-center'));
+const FeatureFlagsProviderControlPanel = React.lazy(() => import('./pages/feature-flags-provider-control-panel'));
+const ChaosControlPanel = React.lazy(() => import('./pages/chaos-control-panel'));
+const IBKRClientPortalGatewayIntegrationCenter = React.lazy(() => import('./pages/ibkr-client-portal-gateway-integration-center'));
+const CMVWilshireMarketIntelligenceCenter = React.lazy(() => import('./pages/cmv-wilshire-market-intelligence-center'));
 
-// Deployment & DevOps
-const DeploymentReadinessTracker = lazy(() => import('./pages/deployment-readiness-tracker/index.jsx'));
-const ProductionReadinessRecoveryCenter = lazy(() => import('./pages/production-readiness-recovery-center/index.jsx'));
-const TradingMvpProductionDeploymentChecklist = lazy(() => import('./pages/trading-mvp-production-deployment-checklist/index.jsx'));
-const TradingMvpProgressDiagnostic = lazy(() => import('./pages/trading-mvp-progress-diagnostic/index.jsx'));
-const MvpDeploymentRoadmapDashboard = lazy(() => import('./pages/mvp-deployment-roadmap-dashboard/index.jsx'));
+// Project & Deployment Management
+const ProjectManagementCockpit = React.lazy(() => import('./pages/project-management-cockpit'));
+const DeploymentReadinessTracker = React.lazy(() => import('./pages/deployment-readiness-tracker'));
+const TradingMVPProductionDeploymentChecklist = React.lazy(() => import('./pages/trading-mvp-production-deployment-checklist'));
+const MVPDeploymentRoadmapDashboard = React.lazy(() => import('./pages/mvp-deployment-roadmap-dashboard'));
+const UltraFastGoLiveCommandCenter = React.lazy(() => import('./pages/ultra-fast-go-live-command-center'));
+const J1J6GoLiveAutomationCenter = React.lazy(() => import('./pages/j1-j6-go-live-automation-center'));
+const ProductionReadinessRecoveryCenter = React.lazy(() => import('./pages/production-readiness-recovery-center'));
 
-// Project Management
-const ProjectManagementCockpit = lazy(() => import('./pages/project-management-cockpit/index.jsx'));
-const GlobalAiTraderRoadmapChecklist = lazy(() => import('./pages/global-ai-trader-roadmap-checklist/index.jsx'));
-const TradingMvpCompletionDashboard = lazy(() => import('./pages/trading-mvp-completion-dashboard/index.jsx'));
+// Advanced AI & Intelligence Systems
+const AIChiefsChatInterface = React.lazy(() => import('./pages/ai-chiefs-chat-interface'));
+const CausalAIMarketRegimeIntelligenceHub = React.lazy(() => import('./pages/causal-ai-market-regime-intelligence-hub'));
+const TGEAlphaIntelligenceCenter = React.lazy(() => import('./pages/tge-alpha-intelligence-center'));
+const TGEIntelligenceRewardsCenter = React.lazy(() => import('./pages/tge-intelligence-rewards-center'));
+const AttentionMarketResourceAllocationHub = React.lazy(() => import('./pages/attention-market-resource-allocation-hub'));
+const VisionUltimeTheLivingHedgeFund = React.lazy(() => import('./pages/vision-ultime-the-living-hedge-fund'));
+const OmegaAIAntagonistLaboratory = React.lazy(() => import('./pages/omega-ai-antagonist-laboratory'));
+const QuantumEngineAgentDiplomacyHub = React.lazy(() => import('./pages/quantum-engine-agent-diplomacy-hub'));
+const AIConsciousnessDecisionIntelligenceHub = React.lazy(() => import('./pages/ai-consciousness-decision-intelligence-hub'));
+const GlobalAIPerformanceAnalyticsCenter = React.lazy(() => import('./pages/global-ai-performance-analytics-center'));
 
-// Captain's Log & Decision Intelligence
-const CaptainSLogDecisionIntelligenceHub = lazy(() => import('./pages/captain-s-log-decision-intelligence-hub/index.jsx'));
+// Freedom v4 Cognitive Memory System - NEW
+const CognitiveMemoryObservatory = React.lazy(() => import('./pages/cognitive-memory-cross-domain-learning-observatory'));
 
-// Advanced Trading Features
-const LiveTradingOrchestrationCenter = lazy(() => import('./pages/live-trading-orchestration-center/index.jsx'));
-const UltraFastGoLiveCommandCenter = lazy(() => import('./pages/ultra-fast-go-live-command-center/index.jsx'));
-const J1J6GoLiveAutomationCenter = lazy(() => import('./pages/j1-j6-go-live-automation-center/index.jsx'));
+// Infrastructure & DevOps
+const DockerProductionDeploymentCenter = React.lazy(() => import('./pages/docker-production-deployment-center'));
+const RedisCachePerformanceInfrastructureCenter = React.lazy(() => import('./pages/redis-cache-performance-infrastructure-center'));
+const DNSSLManagement = React.lazy(() => import('./pages/dns-ssl-management'));
+const SSLSecurityFix = React.lazy(() => import('./pages/ssl-security-fix'));
+const APIDeploymentWithTraefik = React.lazy(() => import('./pages/api-deployment-with-traefik'));
+const WebSocketQuotesBridgeControlCenter = React.lazy(() => import('./pages/web-socket-quotes-bridge-control-center'));
+const PrometheusMonitoringAlertingConfiguration = React.lazy(() => import('./pages/prometheus-monitoring-alerting-configuration'));
 
-// Data Processing
-const PDFDocumentIngestionInterface = lazy(() => import('./pages/pdf-document-ingestion-interface/index.jsx'));
-const PDFIngestionProcessingCenter = lazy(() => import('./pages/pdf-ingestion-processing-center/index.jsx'));
-const OpenAccessFeederPipeline = lazy(() => import('./pages/open-access-feeder-pipeline/index.jsx'));
-const PipelineBooksRegistryOrchestrator = lazy(() => import('./pages/pipeline-books-registry-orchestrator/index.jsx'));
+// Testing & Quality Assurance
+const PerformanceTestingCommandCenter = React.lazy(() => import('./pages/performance-testing-command-center'));
+const K6LoadTestingPerformanceCertificationCenter = React.lazy(() => import('./pages/k6-load-testing-performance-certification-center'));
+const E2ETestingQAValidationSuite = React.lazy(() => import('./pages/e2e-testing-qa-validation-suite'));
+const AutoDiagnosticAutoFixRocket = React.lazy(() => import('./pages/auto-diagnostic-auto-fix-rocket'));
 
-// Specialized Features
-const WeeklyPdfReports = lazy(() => import('./pages/weekly-pdf-reports/index.jsx'));
-const ChaosControlPanel = lazy(() => import('./pages/chaos-control-panel/index.jsx'));
-const FeatureFlagsProviderControlPanel = lazy(() => import('./pages/feature-flags-provider-control-panel/index.jsx'));
-const PrivateCorpusManagement = lazy(() => import('./pages/private-corpus-management/index.jsx'));
+// CI/CD & Development
+const CICDFlutterOptimizedPipeline = React.lazy(() => import('./pages/ci-cd-flutter-optimized-pipeline'));
+const CICDFlutterOptimizedOverview = React.lazy(() => import('./pages/ci-cd-flutter-optimized-overview'));
+const RocketNewCICDPipelineConfiguration = React.lazy(() => import('./pages/rocket-new-ci-cd-pipeline-configuration'));
+const FlutterConfigurationSecurityGuide = React.lazy(() => import('./pages/flutter-configuration-security-guide'));
 
-// AAS (Autonomous AI Speculation) Features
-const AasProductionControlCenter = lazy(() => import('./pages/aas-production-control-center/index.jsx'));
-const AasGeniusPackControlCenter = lazy(() => import('./pages/aas-genius-pack-control-center/index.jsx'));
-const AasEmergencyResponseKillSwitchCenter = lazy(() => import('./pages/aas-emergency-response-kill-switch-center/index.jsx'));
-const AasRealTimeAiThoughtsObservatory = lazy(() => import('./pages/aas-real-time-ai-thoughts-observatory/index.jsx'));
-const AasLevel5ProductionCertificationCommandCenter = lazy(() => import('./pages/aas-level-5-production-certification-command-center/index.jsx'));
-const AutonomousAiHedgeFundLevel = lazy(() => import('./pages/autonomous-ai-hedge-fund-level/index.jsx'));
-const AutonomousAiSpeculationAasEvolutionCenter = lazy(() => import('./pages/autonomous-ai-speculation-aas-evolution-center/index.jsx'));
+// Diagnostic & Debug Tools
+const SOSAPIDiagnosticCenter = React.lazy(() => import('./pages/sos-api-diagnostic-center'));
+const SystemDiagnosticPost502Fix = React.lazy(() => import('./pages/system-diagnostic-post-502-fix'));
+const TradingMVPProgressDiagnostic = React.lazy(() => import('./pages/trading-mvp-progress-diagnostic'));
+const TradingMVPCompletionDashboard = React.lazy(() => import('./pages/trading-mvp-completion-dashboard'));
+const RocketTradingMVPLiveReadinessDiagnostic = React.lazy(() => import('./pages/rocket-trading-mvp-live-readiness-diagnostic'));
+const FrontendDebugLoadingBlocker = React.lazy(() => import('./pages/frontend-debug-loading-blocker'));
+const RlsDiagnosticExpress = React.lazy(() => import('./pages/rls-diagnostic-express'));
+const APIInfrastructureRecoveryCenter = React.lazy(() => import('./pages/api-infrastructure-recovery-center'));
+const DiagnosticPage = React.lazy(() => import('./pages/diagnostic'));
 
-// Vision & Advanced Concepts
-const VisionUltimeTheLivingHedgeFund = lazy(() => import('./pages/vision-ultime-the-living-hedge-fund/index.jsx'));
-const QuantumEngineAgentDiplomacyHub = lazy(() => import('./pages/quantum-engine-agent-diplomacy-hub/index.jsx'));
-const OmegaAiAntagonistLaboratory = lazy(() => import('./pages/omega-ai-antagonist-laboratory/index.jsx'));
-const AttentionMarketResourceAllocationHub = lazy(() => import('./pages/attention-market-resource-allocation-hub/index.jsx'));
+// Configuration & Security
+const GlobalAITraderSecurityConfiguration = React.lazy(() => import('./pages/global-ai-trader-security-configuration'));
+const GlobalAITraderArchitecture = React.lazy(() => import('./pages/global-ai-trader-architecture'));
+const GlobalAITraderRoadmapChecklist = React.lazy(() => import('./pages/global-ai-trader-roadmap-checklist'));
+const EnvSecurityReference = React.lazy(() => import('./pages/env-security-reference'));
+const AIAPIConfigurationCenter = React.lazy(() => import('./pages/ai-api-configuration-center'));
 
-// Infrastructure & Architecture
-const GlobalAiTraderArchitecture = lazy(() => import('./pages/global-ai-trader-architecture/index.jsx'));
-const DockerProductionDeploymentCenter = lazy(() => import('./pages/docker-production-deployment-center/index.jsx'));
-const RedisCachePerformanceInfrastructureCenter = lazy(() => import('./pages/redis-cache-performance-infrastructure-center/index.jsx'));
-const ApiDeploymentWithTraefik = lazy(() => import('./pages/api-deployment-with-traefik/index.jsx'));
-const DnsSslManagement = lazy(() => import('./pages/dns-ssl-management/index.jsx'));
+// Specialized Tools & Analytics
+const CaptainSLogDecisionIntelligenceHub = React.lazy(() => import('./pages/captain-s-log-decision-intelligence-hub'));
+const DataminingInRocketTradingMVP = React.lazy(() => import('./pages/datamining-in-rocket-trading-mvp'));
+const RegistryDualStreamsVsFusion = React.lazy(() => import('./pages/registry-dual-streams-vs-fusion'));
+const RegistryV01StrategyCatalogue = React.lazy(() => import('./pages/registry-v0-1-strategy-catalogue'));
+const IAStrategiesBrancher = React.lazy(() => import('./pages/ia-strategies-brancher'));
+const ShadowPriceAnomalyDetectionCenter = React.lazy(() => import('./pages/shadow-price-anomaly-detection-center'));
 
-// Testing & QA
-const PerformanceTestingCommandCenter = lazy(() => import('./pages/performance-testing-command-center/index.jsx'));
-const K6LoadTestingPerformanceCertificationCenter = lazy(() => import('./pages/k6-load-testing-performance-certification-center/index.jsx'));
-const E2eTestingQaValidationSuite = lazy(() => import('./pages/e2e-testing-qa-validation-suite/index.jsx'));
+// Integration & Extensions
+const RocketNewIntegrationHub = React.lazy(() => import('./pages/rocket-new-integration-hub'));
+const LegacyPagesRedirect = React.lazy(() => import('./pages/legacy-pages-redirect'));
 
-// Specialized Dashboards
-const UnifiedDashboard = lazy(() => import('./pages/unified-dashboard/index.jsx'));
-const TradingMvpLandingPage = lazy(() => import('./pages/trading-mvp-landing-page/index.jsx'));
-const DataminingInRocketTradingMvp = lazy(() => import('./pages/datamining-in-rocket-trading-mvp/index.jsx'));
+// Authentication
+const Login = React.lazy(() => import('./pages/auth/Login'));
+const Signup = React.lazy(() => import('./pages/auth/Signup'));
+const ForgotPassword = React.lazy(() => import('./pages/auth/ForgotPassword'));
 
-// More Advanced Features
-const HybridRagDynamicIntelligenceOrchestrator = lazy(() => import('./pages/hybrid-rag-dynamic-intelligence-orchestrator/index.jsx'));
-const CausalAiMarketRegimeIntelligenceHub = lazy(() => import('./pages/causal-ai-market-regime-intelligence-hub/index.jsx'));
-const FusionOaFeederPrivateCorpus = lazy(() => import('./pages/fusion-oa-feeder-private-corpus/index.jsx'));
-const CmvWilshireMarketIntelligenceCenter = lazy(() => import('./pages/cmv-wilshire-market-intelligence-center/index.jsx'));
-const WebSocketQuotesBridgeControlCenter = lazy(() => import('./pages/web-socket-quotes-bridge-control-center/index.jsx'));
-
-// Configuration & Setup
-const AIApiConfigurationCenter = lazy(() => import('./pages/ai-api-configuration-center/index.jsx'));
-const EnvSecurityReference = lazy(() => import('./pages/env-security-reference/index.jsx'));
-const FlutterConfigurationSecurityGuide = lazy(() => import('./pages/flutter-configuration-security-guide/index.jsx'));
-
-// Diagnostic & Troubleshooting
-const SOSApiDiagnosticCenter = lazy(() => import('./pages/sos-api-diagnostic-center/index.jsx'));
-const FrontendDebugLoadingBlocker = lazy(() => import('./pages/frontend-debug-loading-blocker/index.jsx'));
-const AutoDiagnosticAutoFixRocket = lazy(() => import('./pages/auto-diagnostic-auto-fix-rocket/index.jsx'));
-
-// CI/CD & Integration
-const CiCdFlutterOptimizedOverview = lazy(() => import('./pages/ci-cd-flutter-optimized-overview/index.jsx'));
-const CiCdFlutterOptimizedPipeline = lazy(() => import('./pages/ci-cd-flutter-optimized-pipeline/index.jsx'));
-const RocketNewCiCdPipelineConfiguration = lazy(() => import('./pages/rocket-new-ci-cd-pipeline-configuration/index.jsx'));
-const RocketNewIntegrationHub = lazy(() => import('./pages/rocket-new-integration-hub/index.jsx'));
-
-// Documentation & Security
-const GitSecurityCleanupDocumentation = lazy(() => import('./pages/git-security-cleanup-documentation/index.jsx'));
-const SslSecurityFix = lazy(() => import('./pages/ssl-security-fix/index.jsx'));
-
-// Monitoring Configurations
-const PrometheusMonitoringAlertingConfiguration = lazy(() => import('./pages/prometheus-monitoring-alerting-configuration/index.jsx'));
-
-// Registry & Strategy Features
-const RegistryV01StrategyCatalogue = lazy(() => import('./pages/registry-v0-1-strategy-catalogue/index.jsx'));
-const RegistryDualStreamsVsFusion = lazy(() => import('./pages/registry-dual-streams-vs-fusion/index.jsx'));
-const IaStrategiesBrancher = lazy(() => import('./pages/ia-strategies-brancher/index.jsx'));
-
-// Rocket MVP & Diagnostic Features
-const RocketTradingMvpLiveReadinessDiagnostic = lazy(() => import('./pages/rocket-trading-mvp-live-readiness-diagnostic/index.jsx'));
-
-// Legacy & Redirect
-const LegacyPagesRedirect = lazy(() => import('./pages/legacy-pages-redirect/index.jsx'));
-
-// Special surveillance pages
-const MultiRegionAgentSurveillanceHub = lazy(() => import('./pages/multi-region-agent-surveillance-hub/index.jsx'));
-const TradingAuditHomeV2CommandCenter = lazy(() => import('./pages/trading-audit-home-v2-command-center/index.jsx'));
-const SystemResilienceSafeLandingCenter = lazy(() => import('./pages/system-resilience-safe-landing-center/index.jsx'));
-
-function RouteErrorBoundary(){
-  const err = useRouteError();
-  return (
-    <div style={{padding:24,color:'#eee'}}>
-      <h2>Erreur d'itinéraire interceptée</h2>
-      <p style={{opacity:.85}}>{String(err?.message||err||'Unknown')}</p>
-      <button onClick={()=>location.reload()}>Recharger</button>
-      <button onClick={()=>{localStorage.setItem('SAFE_MODE','1'); location.reload();}} style={{marginLeft:8}}>Activer SAFE_MODE</button>
+// Loading component
+const PageLoader = () => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+      <p className="text-white text-lg">Loading Trading MVP...</p>
     </div>
-  );
-}
+  </div>
+);
 
-const SAFE = (typeof window!=='undefined') && localStorage.getItem('SAFE_MODE')==='1';
+// Offline Detection Component (MOVED INSIDE BrowserRouter)
+const OfflineDetectionWrapper = ({ children }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-export default function AppRouter(){
+  // Initialize offline detection and handle redirects
+  useEffect(() => {
+    const handleSystemOffline = (event) => {
+      const offlineData = event?.detail;
+      
+      // Don't redirect if already on offline page
+      if (location?.pathname === '/offline-recovery-center') {
+        return;
+      }
+      
+      console.log('🚨 System offline detected, redirecting to recovery center');
+      console.log('Offline reason:', offlineData?.reason);
+      
+      // Store current page for return after recovery
+      localStorage.setItem('preOfflinePage', location?.pathname);
+      
+      // Redirect to offline recovery center
+      navigate('/offline-recovery-center');
+    };
+
+    // Listen for system offline events
+    window.addEventListener('systemOfflineDetected', handleSystemOffline);
+
+    // Check if we should restore previous page after recovery
+    const preOfflinePage = localStorage.getItem('preOfflinePage');
+    if (preOfflinePage && location?.pathname === '/offline-recovery-center') {
+      // User is on offline page, keep them there until they manually recover
+    } else if (preOfflinePage && navigator.onLine) {
+      // Connection restored and user not on offline page, can clear the stored page
+      localStorage.removeItem('preOfflinePage');
+    }
+
+    return () => {
+      window.removeEventListener('systemOfflineDetected', handleSystemOffline);
+    };
+  }, [navigate, location?.pathname]);
+
+  return children;
+};
+
+// Register Service Worker
+const registerServiceWorker = () => {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker?.register('/sw.js', { scope: '/' })?.then((registration) => {
+          console.log('SW registered: ', registration);
+        })?.catch((registrationError) => {
+          console.log('SW registration failed: ', registrationError);
+        });
+    });
+  }
+};
+
+function Routes() {
+  React.useEffect(() => {
+    registerServiceWorker();
+  }, []);
+  
   return (
     <BrowserRouter>
-      <HardErrorBoundary>
-        <Routes>
-          <Route path="/" element={<Shell />}>
-            <Route index element={<Suspense fallback={null}>{SAFE? <SafeLanding/> : <Home/>}</Suspense>} />
-            <Route path="/region/eu" element={<Suspense fallback={null}><PageRegion region="EU"/></Suspense>} />
-            <Route path="/region/us" element={<Suspense fallback={null}><PageRegion region="US"/></Suspense>} />
-            <Route path="/region/as" element={<Suspense fallback={null}><PageRegion region="AS"/></Suspense>} />
-            <Route path="/resilience" element={<Suspense fallback={null}>&lt;Resilience/&gt;</Suspense>} />
-            <Route path="/logs" element={<Suspense fallback={null}>&lt;Logs/&gt;</Suspense>} />
-            <Route path="/settings" element={<Suspense fallback={null}>&lt;Settings/&gt;</Suspense>} />
-            
-            {/* AI System Status with safeLazy to prevent #130 error */}
-            <Route path="/ai-system-status" element={<Suspense fallback={null}>&lt;AISystemStatus/&gt;</Suspense>} />
-            
-            {/* NEW ROUTES: Regional AI Command Centers */}
-            <Route path="/europe-regional-command-center" element={<Suspense fallback={null}>&lt;EuropeRegionalCommandCenter/&gt;</Suspense>} />
-            <Route path="/us-regional-command-center" element={<Suspense fallback={null}>&lt;USRegionalCommandCenter/&gt;</Suspense>} />
-            <Route path="/asia-regional-command-center" element={<Suspense fallback={null}>&lt;AsiaRegionalCommandCenter/&gt;</Suspense>} />
-            
-            {/* ROLLBACK STABLE ROUTES: Non-intrusive Regional Trading Centers */}
-            <Route path="/eu-regional-trading-command-center-rollback-stable" element={<Suspense fallback={null}>&lt;EURegionalTradingCommandCenterRollbackStable/&gt;</Suspense>} />
-            <Route path="/us-regional-trading-command-center-rollback-stable" element={<Suspense fallback={null}>&lt;USRegionalTradingCommandCenterRollbackStable/&gt;</Suspense>} />
-            <Route path="/asia-regional-trading-command-center-rollback-stable" element={<Suspense fallback={null}>&lt;AsiaRegionalTradingCommandCenterRollbackStable/&gt;</Suspense>} />
-            
-            <Route path="/auth/login" element={<Suspense fallback={null}>&lt;Login/&gt;</Suspense>} />
-            <Route path="/auth/signup" element={<Suspense fallback={null}>&lt;Signup/&gt;</Suspense>} />
-            <Route path="/auth/forgot-password" element={<Suspense fallback={null}>&lt;ForgotPassword/&gt;</Suspense>} />
-            
-            <Route path="/dashboard" element={<Suspense fallback={null}>&lt;Dashboard/&gt;</Suspense>} />
-            <Route path="/market-analysis" element={<Suspense fallback={null}>&lt;MarketAnalysis/&gt;</Suspense>} />
-            <Route path="/paper-trading" element={<Suspense fallback={null}>&lt;PaperTrading/&gt;</Suspense>} />
-            <Route path="/portfolio-view-enhanced" element={<Suspense fallback={null}>&lt;PortfolioViewEnhanced/&gt;</Suspense>} />
-            <Route path="/portfolio-consolidated-view" element={<Suspense fallback={null}>&lt;PortfolioConsolidatedView/&gt;</Suspense>} />
-            <Route path="/strategy-management" element={<Suspense fallback={null}>&lt;StrategyManagement/&gt;</Suspense>} />
-            
-            <Route path="/ai-agents" element={<Suspense fallback={null}>&lt;AIAgents/&gt;</Suspense>} />
-            <Route path="/agent-roster" element={<Suspense fallback={null}>&lt;AgentRoster/&gt;</Suspense>} />
-            <Route path="/internal-agents-registry" element={<Suspense fallback={null}>&lt;InternalAgentsRegistry/&gt;</Suspense>} />
-            <Route path="/real-time-agent-performance" element={<Suspense fallback={null}>&lt;RealTimeAgentPerformance/&gt;</Suspense>} />
-            <Route path="/real-time-agent-activity-monitor" element={<Suspense fallback={null}>&lt;RealTimeAgentActivityMonitor/&gt;</Suspense>} />
-            
-            <Route path="/ai-agent-emergency-response-center" element={<Suspense fallback={null}>&lt;AIAgentEmergencyResponseCenter/&gt;</Suspense>} />
-            <Route path="/ai-agent-orchestration-command-center" element={<Suspense fallback={null}>&lt;AIAgentOrchestrationCommandCenter/&gt;</Suspense>} />
-            <Route path="/ai-consciousness-decision-intelligence-hub" element={<Suspense fallback={null}>&lt;AIConsciousnessDecisionIntelligenceHub/&gt;</Suspense>} />
-            <Route path="/ai-chiefs-chat-interface" element={<Suspense fallback={null}>&lt;AIChiefsChatInterface/&gt;</Suspense>} />
-            <Route path="/ai-learning-critique-center" element={<Suspense fallback={null}>&lt;AILearningCritiqueCenter/&gt;</Suspense>} />
-            
-            <Route path="/system-status" element={<Suspense fallback={null}>&lt;SystemStatus/&gt;</Suspense>} />
-            <Route path="/system-recovery-optimization-center" element={<Suspense fallback={null}>&lt;SystemRecoveryOptimizationCenter/&gt;</Suspense>} />
-            <Route path="/system-diagnostic-post-502-fix" element={<Suspense fallback={null}>&lt;SystemDiagnosticPost502Fix/&gt;</Suspense>} />
-            <Route path="/self-healing-orchestration-dashboard" element={<Suspense fallback={null}>&lt;SelfHealingOrchestrationDashboard/&gt;</Suspense>} />
-            
-            <Route path="/monitoring-control-center" element={<Suspense fallback={null}>&lt;MonitoringControlCenter/&gt;</Suspense>} />
-            <Route path="/bus-monitor" element={<Suspense fallback={null}>&lt;BusMonitor/&gt;</Suspense>} />
-            <Route path="/orchestrator-dashboard" element={<Suspense fallback={null}>&lt;OrchestratorDashboard/&gt;</Suspense>} />
-            <Route path="/production-monitoring-dashboard-with-grafana-integration" element={<Suspense fallback={null}>&lt;ProductionMonitoringDashboardWithGrafanaIntegration/&gt;</Suspense>} />
-            <Route path="/health-sentinel-observability-command" element={<Suspense fallback={null}>&lt;HealthSentinelObservabilityCommand/&gt;</Suspense>} />
-            
-            <Route path="/supabase-rls-security-configuration-center" element={<Suspense fallback={null}>&lt;SupabaseRlsSecurityConfigurationCenter/&gt;</Suspense>} />
-            <Route path="/supabase-hardening-express-plan" element={<Suspense fallback={null}>&lt;SupabaseHardeningExpressPlan/&gt;</Suspense>} />
-            <Route path="/paranoid-security-audit-compliance-center" element={<Suspense fallback={null}>&lt;ParanoidSecurityAuditComplianceCenter/&gt;</Suspense>} />
-            <Route path="/advanced-ai-security-threat-intelligence-center" element={<Suspense fallback={null}>&lt;AdvancedAiSecurityThreatIntelligenceCenter/&gt;</Suspense>} />
-            <Route path="/rls-diagnostic-express" element={<Suspense fallback={null}>&lt;RlsDiagnosticExpress/&gt;</Suspense>} />
-            <Route path="/global-ai-trader-security-configuration" element={<Suspense fallback={null}>&lt;GlobalAiTraderSecurityConfiguration/&gt;</Suspense>} />
-            
-            <Route path="/research-innovation-center" element={<Suspense fallback={null}>&lt;ResearchInnovationCenter/&gt;</Suspense>} />
-            <Route path="/knowledge-pipeline-management-center" element={<Suspense fallback={null}>&lt;KnowledgePipelineManagementCenter/&gt;</Suspense>} />
-            <Route path="/knowledge-playbooks-hub" element={<Suspense fallback={null}>&lt;KnowledgePlaybooksHub/&gt;</Suspense>} />
-            <Route path="/agent-knowledge-query-interface" element={<Suspense fallback={null}>&lt;AgentKnowledgeQueryInterface/&gt;</Suspense>} />
-            
-            <Route path="/tge-alpha-intelligence-center" element={<Suspense fallback={null}>&lt;TgeAlphaIntelligenceCenter/&gt;</Suspense>} />
-            <Route path="/tge-intelligence-rewards-center" element={<Suspense fallback={null}>&lt;TgeIntelligenceRewardsCenter/&gt;</Suspense>} />
-            <Route path="/correlation-hunter" element={<Suspense fallback={null}>&lt;CorrelationHunter/&gt;</Suspense>} />
-            <Route path="/rag-knowledge-base-dashboard" element={<Suspense fallback={null}>&lt;RagKnowledgeBaseDashboard/&gt;</Suspense>} />
-            <Route path="/ai-knowledge-vector-management" element={<Suspense fallback={null}>&lt;AIKnowledgeVectorManagement/&gt;</Suspense>} />
-            
-            <Route path="/options-strategy-ai" element={<Suspense fallback={null}>&lt;OptionsStrategyAi/&gt;</Suspense>} />
-            <Route path="/options-screening-intelligence-hub" element={<Suspense fallback={null}>&lt;OptionsScreeningIntelligenceHub/&gt;</Suspense>} />
-            <Route path="/genetic-strategy-evolution-laboratory" element={<Suspense fallback={null}>&lt;GeneticStrategyEvolutionLaboratory/&gt;</Suspense>} />
-            <Route path="/strategy-registry-builder" element={<Suspense fallback={null}>&lt;StrategyRegistryBuilder/&gt;</Suspense>} />
-            
-            <Route path="/ibkr-client-portal-gateway-integration-center" element={<Suspense fallback={null}>&lt;IBKRClientPortalGatewayIntegrationCenter/&gt;</Suspense>} />
-            <Route path="/provider-router-dashboard" element={<Suspense fallback={null}>&lt;ProviderRouterDashboard/&gt;</Suspense>} />
-            <Route path="/provider-configuration-management-center" element={<Suspense fallback={null}>&lt;ProviderConfigurationManagementCenter/&gt;</Suspense>} />
-            <Route path="/google-finance-integration" element={<Suspense fallback={null}>&lt;GoogleFinanceIntegration/&gt;</Suspense>} />
-            
-            <Route path="/risk-controller-dashboard" element={<Suspense fallback={null}>&lt;RiskControllerDashboard/&gt;</Suspense>} />
-            <Route path="/shadow-price-anomaly-detection-center" element={<Suspense fallback={null}>&lt;ShadowPriceAnomalyDetectionCenter/&gt;</Suspense>} />
-            
-            <Route path="/deployment-readiness-tracker" element={<Suspense fallback={null}>&lt;DeploymentReadinessTracker/&gt;</Suspense>} />
-            <Route path="/production-readiness-recovery-center" element={<Suspense fallback={null}>&lt;ProductionReadinessRecoveryCenter/&gt;</Suspense>} />
-            <Route path="/trading-mvp-production-deployment-checklist" element={<Suspense fallback={null}>&lt;TradingMvpProductionDeploymentChecklist/&gt;</Suspense>} />
-            <Route path="/trading-mvp-progress-diagnostic" element={<Suspense fallback={null}>&lt;TradingMvpProgressDiagnostic/&gt;</Suspense>} />
-            <Route path="/mvp-deployment-roadmap-dashboard" element={<Suspense fallback={null}>&lt;MvpDeploymentRoadmapDashboard/&gt;</Suspense>} />
-            
-            <Route path="/project-management-cockpit" element={<Suspense fallback={null}>&lt;ProjectManagementCockpit/&gt;</Suspense>} />
-            <Route path="/global-ai-trader-roadmap-checklist" element={<Suspense fallback={null}>&lt;GlobalAiTraderRoadmapChecklist/&gt;</Suspense>} />
-            <Route path="/trading-mvp-completion-dashboard" element={<Suspense fallback={null}>&lt;TradingMvpCompletionDashboard/&gt;</Suspense>} />
-            
-            <Route path="/captain-s-log-decision-intelligence-hub" element={<Suspense fallback={null}>&lt;CaptainSLogDecisionIntelligenceHub/&gt;</Suspense>} />
-            
-            <Route path="/live-trading-orchestration-center" element={<Suspense fallback={null}>&lt;LiveTradingOrchestrationCenter/&gt;</Suspense>} />
-            <Route path="/ultra-fast-go-live-command-center" element={<Suspense fallback={null}>&lt;UltraFastGoLiveCommandCenter/&gt;</Suspense>} />
-            <Route path="/j1-j6-go-live-automation-center" element={<Suspense fallback={null}>&lt;J1J6GoLiveAutomationCenter/&gt;</Suspense>} />
-            
-            <Route path="/pdf-document-ingestion-interface" element={<Suspense fallback={null}>&lt;PDFDocumentIngestionInterface/&gt;</Suspense>} />
-            <Route path="/pdf-ingestion-processing-center" element={<Suspense fallback={null}>&lt;PDFIngestionProcessingCenter/&gt;</Suspense>} />
-            <Route path="/open-access-feeder-pipeline" element={<Suspense fallback={null}>&lt;OpenAccessFeederPipeline/&gt;</Suspense>} />
-            <Route path="/pipeline-books-registry-orchestrator" element={<Suspense fallback={null}>&lt;PipelineBooksRegistryOrchestrator/&gt;</Suspense>} />
-            
-            <Route path="/weekly-pdf-reports" element={<Suspense fallback={null}>&lt;WeeklyPdfReports/&gt;</Suspense>} />
-            <Route path="/chaos-control-panel" element={<Suspense fallback={null}>&lt;ChaosControlPanel/&gt;</Suspense>} />
-            <Route path="/feature-flags-provider-control-panel" element={<Suspense fallback={null}>&lt;FeatureFlagsProviderControlPanel/&gt;</Suspense>} />
-            <Route path="/private-corpus-management" element={<Suspense fallback={null}>&lt;PrivateCorpusManagement/&gt;</Suspense>} />
-            
-            <Route path="/aas-production-control-center" element={<Suspense fallback={null}>&lt;AasProductionControlCenter/&gt;</Suspense>} />
-            <Route path="/aas-genius-pack-control-center" element={<Suspense fallback={null}>&lt;AasGeniusPackControlCenter/&gt;</Suspense>} />
-            <Route path="/aas-emergency-response-kill-switch-center" element={<Suspense fallback={null}>&lt;AasEmergencyResponseKillSwitchCenter/&gt;</Suspense>} />
-            <Route path="/aas-real-time-ai-thoughts-observatory" element={<Suspense fallback={null}>&lt;AasRealTimeAiThoughtsObservatory/&gt;</Suspense>} />
-            <Route path="/aas-level-5-production-certification-command-center" element={<Suspense fallback={null}>&lt;AasLevel5ProductionCertificationCommandCenter/&gt;</Suspense>} />
-            <Route path="/autonomous-ai-hedge-fund-level" element={<Suspense fallback={null}>&lt;AutonomousAiHedgeFundLevel/&gt;</Suspense>} />
-            <Route path="/autonomous-ai-speculation-aas-evolution-center" element={<Suspense fallback={null}>&lt;AutonomousAiSpeculationAasEvolutionCenter/&gt;</Suspense>} />
-            
-            <Route path="/vision-ultime-the-living-hedge-fund" element={<Suspense fallback={null}>&lt;VisionUltimeTheLivingHedgeFund/&gt;</Suspense>} />
-            <Route path="/quantum-engine-agent-diplomacy-hub" element={<Suspense fallback={null}>&lt;QuantumEngineAgentDiplomacyHub/&gt;</Suspense>} />
-            <Route path="/omega-ai-antagonist-laboratory" element={<Suspense fallback={null}>&lt;OmegaAiAntagonistLaboratory/&gt;</Suspense>} />
-            <Route path="/attention-market-resource-allocation-hub" element={<Suspense fallback={null}>&lt;AttentionMarketResourceAllocationHub/&gt;</Suspense>} />
-            
-            <Route path="/global-ai-trader-architecture" element={<Suspense fallback={null}>&lt;GlobalAiTraderArchitecture/&gt;</Suspense>} />
-            <Route path="/docker-production-deployment-center" element={<Suspense fallback={null}>&lt;DockerProductionDeploymentCenter/&gt;</Suspense>} />
-            <Route path="/redis-cache-performance-infrastructure-center" element={<Suspense fallback={null}>&lt;RedisCachePerformanceInfrastructureCenter/&gt;</Suspense>} />
-            <Route path="/api-deployment-with-traefik" element={<Suspense fallback={null}>&lt;ApiDeploymentWithTraefik/&gt;</Suspense>} />
-            <Route path="/dns-ssl-management" element={<Suspense fallback={null}>&lt;DnsSslManagement/&gt;</Suspense>} />
-            
-            <Route path="/performance-testing-command-center" element={<Suspense fallback={null}>&lt;PerformanceTestingCommandCenter/&gt;</Suspense>} />
-            <Route path="/k6-load-testing-performance-certification-center" element={<Suspense fallback={null}>&lt;K6LoadTestingPerformanceCertificationCenter/&gt;</Suspense>} />
-            <Route path="/e2e-testing-qa-validation-suite" element={<Suspense fallback={null}>&lt;E2eTestingQaValidationSuite/&gt;</Suspense>} />
-            
-            <Route path="/unified-dashboard" element={<Suspense fallback={null}>&lt;UnifiedDashboard/&gt;</Suspense>} />
-            <Route path="/trading-mvp-landing-page" element={<Suspense fallback={null}>&lt;TradingMvpLandingPage/&gt;</Suspense>} />
-            <Route path="/datamining-in-rocket-trading-mvp" element={<Suspense fallback={null}>&lt;DataminingInRocketTradingMvp/&gt;</Suspense>} />
-            
-            <Route path="/hybrid-rag-dynamic-intelligence-orchestrator" element={<Suspense fallback={null}>&lt;HybridRagDynamicIntelligenceOrchestrator/&gt;</Suspense>} />
-            <Route path="/causal-ai-market-regime-intelligence-hub" element={<Suspense fallback={null}>&lt;CausalAiMarketRegimeIntelligenceHub/&gt;</Suspense>} />
-            <Route path="/fusion-oa-feeder-private-corpus" element={<Suspense fallback={null}>&lt;FusionOaFeederPrivateCorpus/&gt;</Suspense>} />
-            <Route path="/cmv-wilshire-market-intelligence-center" element={<Suspense fallback={null}>&lt;CmvWilshireMarketIntelligenceCenter/&gt;</Suspense>} />
-            <Route path="/web-socket-quotes-bridge-control-center" element={<Suspense fallback={null}>&lt;WebSocketQuotesBridgeControlCenter/&gt;</Suspense>} />
-            
-            <Route path="/ai-api-configuration-center" element={<Suspense fallback={null}>&lt;AIApiConfigurationCenter/&gt;</Suspense>} />
-            <Route path="/env-security-reference" element={<Suspense fallback={null}>&lt;EnvSecurityReference/&gt;</Suspense>} />
-            <Route path="/flutter-configuration-security-guide" element={<Suspense fallback={null}>&lt;FlutterConfigurationSecurityGuide/&gt;</Suspense>} />
-            
-            <Route path="/sos-api-diagnostic-center" element={<Suspense fallback={null}>&lt;SOSApiDiagnosticCenter/&gt;</Suspense>} />
-            <Route path="/frontend-debug-loading-blocker" element={<Suspense fallback={null}>&lt;FrontendDebugLoadingBlocker/&gt;</Suspense>} />
-            <Route path="/auto-diagnostic-auto-fix-rocket" element={<Suspense fallback={null}>&lt;AutoDiagnosticAutoFixRocket/&gt;</Suspense>} />
-            
-            <Route path="/ci-cd-flutter-optimized-overview" element={<Suspense fallback={null}>&lt;CiCdFlutterOptimizedOverview/&gt;</Suspense>} />
-            <Route path="/ci-cd-flutter-optimized-pipeline" element={<Suspense fallback={null}>&lt;CiCdFlutterOptimizedPipeline/&gt;</Suspense>} />
-            <Route path="/rocket-new-ci-cd-pipeline-configuration" element={<Suspense fallback={null}>&lt;RocketNewCiCdPipelineConfiguration/&gt;</Suspense>} />
-            <Route path="/rocket-new-integration-hub" element={<Suspense fallback={null}>&lt;RocketNewIntegrationHub/&gt;</Suspense>} />
-            
-            <Route path="/git-security-cleanup-documentation" element={<Suspense fallback={null}>&lt;GitSecurityCleanupDocumentation/&gt;</Suspense>} />
-            <Route path="/ssl-security-fix" element={<Suspense fallback={null}>&lt;SslSecurityFix/&gt;</Suspense>} />
-            
-            <Route path="/prometheus-monitoring-alerting-configuration" element={<Suspense fallback={null}>&lt;PrometheusMonitoringAlertingConfiguration/&gt;</Suspense>} />
-            
-            <Route path="/registry-v0-1-strategy-catalogue" element={<Suspense fallback={null}>&lt;RegistryV01StrategyCatalogue/&gt;</Suspense>} />
-            <Route path="/registry-dual-streams-vs-fusion" element={<Suspense fallback={null}>&lt;RegistryDualStreamsVsFusion/&gt;</Suspense>} />
-            <Route path="/ia-strategies-brancher" element={<Suspense fallback={null}>&lt;IaStrategiesBrancher/&gt;</Suspense>} />
-            
-            <Route path="/rocket-trading-mvp-live-readiness-diagnostic" element={<Suspense fallback={null}>&lt;RocketTradingMvpLiveReadinessDiagnostic/&gt;</Suspense>} />
-
-            {/* Special surveillance routes that were broken */}
-            <Route path="/multi-region-agent-surveillance-hub" element={<Suspense fallback={null}>&lt;MultiRegionAgentSurveillanceHub/&gt;</Suspense>} />
-            <Route path="/trading-audit-home-v2-command-center" element={<Suspense fallback={null}>&lt;TradingAuditHomeV2CommandCenter/&gt;</Suspense>} />
-            <Route path="/system-resilience-safe-landing-center" element={<Suspense fallback={null}>&lt;SystemResilienceSafeLandingCenter/&gt;</Suspense>} />
-            
-            <Route path="/legacy-pages-redirect" element={<Suspense fallback={null}>&lt;LegacyPagesRedirect/&gt;</Suspense>} />
-            
-            <Route path="*" element={<Suspense fallback={null}>&lt;NotFound/&gt;</Suspense>} />
-          </Route>
-        </Routes>
-      </HardErrorBoundary>
+      <ErrorBoundary>
+        <ScrollToTop />
+        <OfflineDetectionWrapper>
+          <Suspense fallback={<PageLoader />}>
+            <RouterRoutes>
+              {/* Home route - redirect to dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Main application routes */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/unified-dashboard" element={<UnifiedDashboard />} />
+              <Route path="/unified" element={<Navigate to="/unified-dashboard" replace />} />
+              <Route path="/system-status" element={<SystemStatus />} />
+              <Route path="/diagnostic" element={<DiagnosticPage />} />
+              <Route path="/diagnostic-6-verifications" element={<Diagnostic6Verifications />} />
+              <Route path="/rocket-trading-mvp-live-readiness-diagnostic" element={<RocketTradingMVPLiveReadinessDiagnostic />} />
+              
+              {/* IA Exploration Totale Freedom v4 - NEW ROUTES */}
+              <Route path="/ia-exploration-totale-freedom-v4-cognitive-engine" element={<IAExplorationTotaleFreedomV4CognitiveEngine />} />
+              <Route path="/ifrs-fiscal-intelligence-integration-center" element={<IFRSFiscalIntelligenceIntegrationCenter />} />
+              
+              {/* AI & Agent Management */}
+              <Route path="/ai-system-status" element={<AISystemStatus />} />
+              <Route path="/ai-agents" element={<AIAgents />} />
+              <Route path="/agent-roster" element={<AgentRoster />} />
+              <Route path="/real-time-agent-performance" element={<RealTimeAgentPerformance />} />
+              <Route path="/internal-agents-registry" element={<InternalAgentsRegistry />} />
+              <Route path="/ai-agent-orchestration-command-center" element={<AIAgentOrchestrationCommandCenter />} />
+              <Route path="/ai-agent-emergency-response-center" element={<AIAgentEmergencyResponseCenter />} />
+              <Route path="/real-time-agent-activity-monitor" element={<RealTimeAgentActivityMonitor />} />
+              <Route path="/ai-swarm-hub" element={<AISwarmHub />} />
+              <Route path="/diagnostic-5-checks-final" element={<DiagnosticFinalChecks />} />
+              
+              {/* AI Paper Trading Deployment Orchestrator - NEW ROUTE */}
+              <Route path="/ai-paper-trading-deployment-orchestrator" element={<AIPaperTradingDeploymentOrchestrator />} />
+              
+              {/* Trading & Portfolio Management */}
+              <Route path="/market-analysis" element={<MarketAnalysis />} />
+              <Route path="/portfolio-view-enhanced" element={<PortfolioViewEnhanced />} />
+              <Route path="/portfolio-consolidated-view" element={<PortfolioConsolidatedView />} />
+              <Route path="/strategy-management" element={<StrategyManagement />} />
+              <Route path="/paper-trading" element={<PaperTrading />} />
+              <Route path="/options-strategy-ai" element={<OptionsStrategyAI />} />
+              <Route path="/options-screening-intelligence-hub" element={<OptionsScreeningIntelligenceHub />} />
+              <Route path="/correlation-hunter" element={<CorrelationHunter />} />
+              <Route path="/strategy-registry-builder" element={<StrategyRegistryBuilder />} />
+              <Route path="/genetic-strategy-evolution-laboratory" element={<GeneticStrategyEvolutionLaboratory />} />
+              <Route path="/live-trading-orchestration-center" element={<LiveTradingOrchestrationCenter />} />
+              
+              {/* Risk & Security Management */}
+              <Route path="/risk-controller-dashboard" element={<RiskControllerDashboard />} />
+              <Route path="/supabase-rls-security-configuration-center" element={<SupabaseRlsSecurityConfigurationCenter />} />
+              <Route path="/supabase-hardening-express-plan" element={<SupabaseHardeningExpressPlan />} />
+              <Route path="/paranoid-security-audit-compliance-center" element={<ParanoidSecurityAuditComplianceCenter />} />
+              <Route path="/advanced-ai-security-threat-intelligence-center" element={<AdvancedAISecurityThreatIntelligenceCenter />} />
+              <Route path="/git-security-cleanup-documentation" element={<GitSecurityCleanupDocumentation />} />
+              
+              {/* Research & Innovation */}
+              <Route path="/research-innovation-center" element={<ResearchInnovationCenter />} />
+              <Route path="/ai-learning-critique-center" element={<AILearningCritiqueCenter />} />
+              <Route path="/knowledge-pipeline-management-center" element={<KnowledgePipelineManagementCenter />} />
+              <Route path="/agent-knowledge-query-interface" element={<AgentKnowledgeQueryInterface />} />
+              <Route path="/rag-knowledge-base-dashboard" element={<RAGKnowledgeBaseDashboard />} />
+              <Route path="/knowledge-playbooks-hub" element={<KnowledgePlaybooksHub />} />
+              <Route path="/ai-knowledge-vector-management" element={<AIKnowledgeVectorManagement />} />
+              <Route path="/hybrid-rag-dynamic-intelligence-orchestrator" element={<HybridRAGDynamicIntelligenceOrchestrator />} />
+              
+              {/* Monitoring & Control */}
+              <Route path="/monitoring-control-center" element={<MonitoringControlCenter />} />
+              <Route path="/self-healing-orchestration-dashboard" element={<SelfHealingOrchestrationDashboard />} />
+              <Route path="/bus-monitor" element={<BusMonitor />} />
+              <Route path="/orchestrator-dashboard" element={<OrchestratorDashboard />} />
+              <Route path="/system-recovery-optimization-center" element={<SystemRecoveryOptimizationCenter />} />
+              <Route path="/health-sentinel-observability-command" element={<HealthSentinelObservabilityCommand />} />
+              <Route path="/production-monitoring-dashboard-with-grafana-integration" element={<ProductionMonitoringDashboardWithGrafanaIntegration />} />
+              
+              {/* AAS (Autonomous AI Speculation) Systems */}
+              <Route path="/aas-production-control-center" element={<AASProductionControlCenter />} />
+              <Route path="/aas-genius-pack-control-center" element={<AASGeniusPackControlCenter />} />
+              <Route path="/aas-emergency-response-kill-switch-center" element={<AASEmergencyResponseKillSwitchCenter />} />
+              <Route path="/aas-level-5-production-certification-command-center" element={<AASLevel5ProductionCertificationCommandCenter />} />
+              <Route path="/aas-real-time-ai-thoughts-observatory" element={<AASRealTimeAIThoughtsObservatory />} />
+              <Route path="/autonomous-ai-speculation-aas-evolution-center" element={<AutonomousAISpeculationAASEvolutionCenter />} />
+              <Route path="/autonomous-ai-hedge-fund-level" element={<AutonomousAIHedgeFundLevel />} />
+              
+              {/* Data Processing & Intelligence */}
+              <Route path="/google-finance-integration" element={<GoogleFinanceIntegration />} />
+              <Route path="/weekly-pdf-reports" element={<WeeklyPdfReports />} />
+              <Route path="/pdf-document-ingestion-interface" element={<PDFDocumentIngestionInterface />} />
+              <Route path="/pdf-ingestion-processing-center" element={<PDFIngestionProcessingCenter />} />
+              <Route path="/pipeline-books-registry-orchestrator" element={<PipelineBooksRegistryOrchestrator />} />
+              <Route path="/open-access-feeder-pipeline" element={<OpenAccessFeederPipeline />} />
+              <Route path="/fusion-oa-feeder-private-corpus" element={<FusionOAFeederPrivateCorpus />} />
+              <Route path="/private-corpus-management" element={<PrivateCorpusManagement />} />
+              
+              {/* Provider & Integration Management */}
+              <Route path="/provider-router-dashboard" element={<ProviderRouterDashboard />} />
+              <Route path="/provider-configuration-management-center" element={<ProviderConfigurationManagementCenter />} />
+              <Route path="/feature-flags-provider-control-panel" element={<FeatureFlagsProviderControlPanel />} />
+              <Route path="/chaos-control-panel" element={<ChaosControlPanel />} />
+              <Route path="/ibkr-client-portal-gateway-integration-center" element={<IBKRClientPortalGatewayIntegrationCenter />} />
+              <Route path="/cmv-wilshire-market-intelligence-center" element={<CMVWilshireMarketIntelligenceCenter />} />
+              
+              {/* Project & Deployment Management */}
+              <Route path="/project-management-cockpit" element={<ProjectManagementCockpit />} />
+              <Route path="/deployment-readiness-tracker" element={<DeploymentReadinessTracker />} />
+              <Route path="/trading-mvp-production-deployment-checklist" element={<TradingMVPProductionDeploymentChecklist />} />
+              <Route path="/mvp-deployment-roadmap-dashboard" element={<MVPDeploymentRoadmapDashboard />} />
+              <Route path="/ultra-fast-go-live-command-center" element={<UltraFastGoLiveCommandCenter />} />
+              <Route path="/j1-j6-go-live-automation-center" element={<J1J6GoLiveAutomationCenter />} />
+              <Route path="/production-readiness-recovery-center" element={<ProductionReadinessRecoveryCenter />} />
+              
+              {/* Advanced AI & Intelligence Systems */}
+              <Route path="/ai-chiefs-chat-interface" element={<AIChiefsChatInterface />} />
+              <Route path="/causal-ai-market-regime-intelligence-hub" element={<CausalAIMarketRegimeIntelligenceHub />} />
+              <Route path="/tge-alpha-intelligence-center" element={<TGEAlphaIntelligenceCenter />} />
+              <Route path="/tge-intelligence-rewards-center" element={<TGEIntelligenceRewardsCenter />} />
+              <Route path="/attention-market-resource-allocation-hub" element={<AttentionMarketResourceAllocationHub />} />
+              <Route path="/vision-ultime-the-living-hedge-fund" element={<VisionUltimeTheLivingHedgeFund />} />
+              <Route path="/omega-ai-antagonist-laboratory" element={<OmegaAIAntagonistLaboratory />} />
+              <Route path="/quantum-engine-agent-diplomacy-hub" element={<QuantumEngineAgentDiplomacyHub />} />
+              <Route path="/ai-consciousness-decision-intelligence-hub" element={<AIConsciousnessDecisionIntelligenceHub />} />
+              <Route path="/global-ai-performance-analytics-center" element={<GlobalAIPerformanceAnalyticsCenter />} />
+              
+              {/* Freedom v4 Cognitive Memory System - NEW ROUTE */}
+              <Route path="/cognitive-memory-cross-domain-learning-observatory" element={<CognitiveMemoryObservatory />} />
+              
+              {/* Infrastructure & DevOps */}
+              <Route path="/docker-production-deployment-center" element={<DockerProductionDeploymentCenter />} />
+              <Route path="/redis-cache-performance-infrastructure-center" element={<RedisCachePerformanceInfrastructureCenter />} />
+              <Route path="/dns-ssl-management" element={<DNSSLManagement />} />
+              <Route path="/ssl-security-fix" element={<SSLSecurityFix />} />
+              <Route path="/api-deployment-with-traefik" element={<APIDeploymentWithTraefik />} />
+              <Route path="/web-socket-quotes-bridge-control-center" element={<WebSocketQuotesBridgeControlCenter />} />
+              <Route path="/prometheus-monitoring-alerting-configuration" element={<PrometheusMonitoringAlertingConfiguration />} />
+              
+              {/* Testing & Quality Assurance */}
+              <Route path="/performance-testing-command-center" element={<PerformanceTestingCommandCenter />} />
+              <Route path="/k6-load-testing-performance-certification-center" element={<K6LoadTestingPerformanceCertificationCenter />} />
+              <Route path="/e2e-testing-qa-validation-suite" element={<E2ETestingQAValidationSuite />} />
+              <Route path="/auto-diagnostic-auto-fix-rocket" element={<AutoDiagnosticAutoFixRocket />} />
+              
+              {/* CI/CD & Development */}
+              <Route path="/ci-cd-flutter-optimized-pipeline" element={<CICDFlutterOptimizedPipeline />} />
+              <Route path="/ci-cd-flutter-optimized-overview" element={<CICDFlutterOptimizedOverview />} />
+              <Route path="/rocket-new-ci-cd-pipeline-configuration" element={<RocketNewCICDPipelineConfiguration />} />
+              <Route path="/flutter-configuration-security-guide" element={<FlutterConfigurationSecurityGuide />} />
+              
+              {/* Diagnostic & Debug Tools */}
+              <Route path="/sos-api-diagnostic-center" element={<SOSAPIDiagnosticCenter />} />
+              <Route path="/system-diagnostic-post-502-fix" element={<SystemDiagnosticPost502Fix />} />
+              <Route path="/trading-mvp-progress-diagnostic" element={<TradingMVPProgressDiagnostic />} />
+              <Route path="/trading-mvp-completion-dashboard" element={<TradingMVPCompletionDashboard />} />
+              <Route path="/frontend-debug-loading-blocker" element={<FrontendDebugLoadingBlocker />} />
+              <Route path="/rls-diagnostic-express" element={<RlsDiagnosticExpress />} />
+              <Route path="/api-infrastructure-recovery-center" element={<APIInfrastructureRecoveryCenter />} />
+              <Route path="/diagnostic" element={<DiagnosticPage />} />
+              
+              {/* Configuration & Security */}
+              <Route path="/global-ai-trader-security-configuration" element={<GlobalAITraderSecurityConfiguration />} />
+              <Route path="/global-ai-trader-architecture" element={<GlobalAITraderArchitecture />} />
+              <Route path="/global-ai-trader-roadmap-checklist" element={<GlobalAITraderRoadmapChecklist />} />
+              <Route path="/env-security-reference" element={<EnvSecurityReference />} />
+              <Route path="/ai-api-configuration-center" element={<AIAPIConfigurationCenter />} />
+              
+              {/* Specialized Tools & Analytics */}
+              <Route path="/captain-s-log-decision-intelligence-hub" element={<CaptainSLogDecisionIntelligenceHub />} />
+              <Route path="/datamining-in-rocket-trading-mvp" element={<DataminingInRocketTradingMVP />} />
+              <Route path="/registry-dual-streams-vs-fusion" element={<RegistryDualStreamsVsFusion />} />
+              <Route path="/registry-v0-1-strategy-catalogue" element={<RegistryV01StrategyCatalogue />} />
+              <Route path="/ia-strategies-brancher" element={<IAStrategiesBrancher />} />
+              <Route path="/shadow-price-anomaly-detection-center" element={<ShadowPriceAnomalyDetectionCenter />} />
+              
+              {/* Integration & Extensions */}
+              <Route path="/rocket-new-integration-hub" element={<RocketNewIntegrationHub />} />
+              <Route path="/legacy-pages-redirect" element={<LegacyPagesRedirect />} />
+              <Route path="/offline-recovery-center" element={<OfflineRecoveryCenter />} />
+              
+              {/* Authentication */}
+              <Route path="/auth/login" element={<Login />} />
+              <Route path="/auth/signup" element={<Signup />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+              
+              {/* 404 - Keep as last route */}
+              <Route path="*" element={<NotFound />} />
+            </RouterRoutes>
+          </Suspense>
+        </OfflineDetectionWrapper>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }
 
-const Regioni = [
-  { name: 'EU', route: '/eu-regional-command-center' },
-  { name: 'US', route: '/us-regional-command-center' },
-  { name: 'AS', route: '/asia-regional-command-center' },
-];
-
-window.RegionPages = Regioni;
-window.RegionHash = {};
-
-export { Regioni };
+export default Routes;

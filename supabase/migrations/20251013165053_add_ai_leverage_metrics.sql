@@ -1,0 +1,2 @@
+-- This migration file should be DELETED - AI Leverage database table removal requested by user
+-- Original migration created ai_leverage_metrics table which should be removed

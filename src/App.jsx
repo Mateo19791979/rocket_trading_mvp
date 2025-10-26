@@ -1,16 +1,13 @@
 import React from 'react';
-import Routes from './Routes';
+import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import AuthProvider from './contexts/AuthContext';
-import AIStabilityGuard from './components/AIStabilityGuard';
+import Routes from './Routes';
 
 function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AIStabilityGuard>
-          <Routes />
-        </AIStabilityGuard>
+        <Routes />
       </AuthProvider>
     </ErrorBoundary>
   );

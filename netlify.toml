@@ -1,0 +1,60 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# STEP 2 - Proxy API configuration with force=true
+[[redirects]]
+  from = "/api/*"
+  to = "https://rockettra3991back.builtwithrocket.new/api/:splat"
+  status = 200
+  force = true
+
+# SPA routing configuration - handles all other routes client-side
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# STEP 4 - Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# STEP 4 - Cache optimization for static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# STEP 4 - No cache for main HTML to ensure fresh routing
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# STEP 4 - API routes should NOT return HTML (force Content-Type validation)
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Content-Type = "application/json; charset=utf-8"

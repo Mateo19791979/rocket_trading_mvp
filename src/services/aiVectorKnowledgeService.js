@@ -5,26 +5,9 @@ import openai from '../lib/openaiClient';
  * AI Vector Knowledge Service - RAG System Integration
  * Handles vector storage, embedding generation, and knowledge retrieval
  * for Thomas Mazzoni & Peter Lynch book integration
- * ENHANCED: Circuit breakers and request throttling to prevent infinite loops
  */
 export class AIVectorKnowledgeService {
   
-  // ADDED: Circuit breaker for API calls to prevent cascading failures
-  static _circuitBreaker = {
-    failures: 0,
-    lastFailTime: null,
-    isOpen: false,
-    threshold: 5,
-    timeout: 30000 // 30 seconds
-  };
-
-  // ADDED: Request throttling to prevent excessive API calls
-  static _requestThrottle = {
-    requests: new Map(),
-    maxRequests: 10,
-    timeWindow: 60000 // 1 minute
-  };
-
   /**
    * ENHANCED BOOK LIBRARY - Extended Knowledge Base for AAS
    * Adding 10+ world-class trading and AI books for maximum efficiency
@@ -99,144 +82,53 @@ export class AIVectorKnowledgeService {
       priority: 1
     }
   };
-
-  /**
-   * ADDED: Circuit breaker check to prevent cascading failures
-   */
-  static _checkCircuitBreaker() {
-    if (this._circuitBreaker?.isOpen) {
-      const timeSinceLastFail = Date.now() - this._circuitBreaker?.lastFailTime;
-      if (timeSinceLastFail > this._circuitBreaker?.timeout) {
-        this._circuitBreaker.isOpen = false;
-        this._circuitBreaker.failures = 0;
-        console.log('[AIVectorService] Circuit breaker reset');
-      } else {
-        throw new Error('Service temporarily unavailable due to circuit breaker');
-      }
-    }
-  }
-
-  /**
-   * ADDED: Request throttling to prevent API abuse
-   */
-  static _throttleRequest(method) {
-    const now = Date.now();
-    const windowStart = now - this._requestThrottle?.timeWindow;
-    
-    // Clean old requests
-    for (const [key, timestamp] of this._requestThrottle?.requests?.entries()) {
-      if (timestamp < windowStart) {
-        this._requestThrottle?.requests?.delete(key);
-      }
-    }
-    
-    const currentRequests = Array.from(this._requestThrottle?.requests?.values())?.filter(timestamp => timestamp > windowStart)?.length;
-    
-    if (currentRequests >= this._requestThrottle?.maxRequests) {
-      throw new Error(`Too many requests for ${method}. Please wait.`);
-    }
-    
-    this._requestThrottle?.requests?.set(`${method}_${now}`, now);
-  }
-
-  /**
-   * ADDED: Safe API call wrapper with circuit breaker and throttling
-   */
-  static async _safeApiCall(method, apiCall) {
-    try {
-      this._checkCircuitBreaker();
-      this._throttleRequest(method);
-      
-      const result = await apiCall();
-      
-      // Reset circuit breaker on success
-      if (this._circuitBreaker?.failures > 0) {
-        this._circuitBreaker.failures = 0;
-        console.log('[AIVectorService] Circuit breaker failures reset');
-      }
-      
-      return result;
-    } catch (error) {
-      console.error(`[AIVectorService] ${method} failed:`, error);
-      
-      // Update circuit breaker
-      this._circuitBreaker.failures++;
-      this._circuitBreaker.lastFailTime = Date.now();
-      
-      if (this._circuitBreaker?.failures >= this._circuitBreaker?.threshold) {
-        this._circuitBreaker.isOpen = true;
-        console.warn('[AIVectorService] Circuit breaker opened due to failures');
-      }
-      
-      throw error;
-    }
-  }
   
   /**
    * Process PDF content into chunks and generate embeddings
-   * ENHANCED: Added circuit breaker protection
+   * @param {string} pdfContent - Raw PDF text content
+   * @param {string} bookId - Book library ID
+   * @param {string} source - Book source (Thomas Mazzoni, Peter Lynch)
+   * @param {string[]} topics - Topic tags for categorization
+   * @returns {Promise<Object>} Processing results
    */
   static async processBookToVectors(pdfContent, bookId, source, topics = []) {
-    return this._safeApiCall('processBookToVectors', async () => {
+    try {
       // 1. Clean and chunk the content
       const cleanedContent = this.cleanPDFContent(pdfContent);
       const chunks = this.chunkText(cleanedContent, 1000, 100);
       
-      // 2. Generate embeddings for all chunks with batching
+      // 2. Generate embeddings for all chunks
       const vectorResults = [];
-      const batchSize = 5; // Process in smaller batches to prevent overload
       
-      for (let i = 0; i < chunks?.length; i += batchSize) {
-        const batch = chunks?.slice(i, i + batchSize);
+      for (let i = 0; i < chunks?.length; i++) {
+        const chunk = chunks?.[i];
         
-        const batchPromises = batch?.map(async (chunk, batchIndex) => {
-          const chunkIndex = i + batchIndex;
-          
-          try {
-            // Generate embedding using OpenAI with timeout
-            const embedding = await Promise.race([
-              this.generateEmbedding(chunk),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Embedding timeout')), 30000)
-              )
-            ]);
-            
-            // Extract metadata
-            const metadata = this.extractMetadata(chunk, source);
-            
-            // Store in Supabase with retry logic
-            const { data, error } = await supabase?.from('ai_knowledge_vectors')?.insert({
-                content: chunk,
-                chunk_index: chunkIndex,
-                embedding,
-                metadata,
-                source,
-                topics,
-                book_id: bookId,
-                chunk_size: 1000,
-                overlap_size: 100,
-                quality_score: this.calculateQualityScore(chunk)
-              })?.select()?.single();
-            
-            if (error) {
-              console.error(`Error storing vector chunk ${chunkIndex}:`, error?.message);
-              return null;
-            }
-            
-            return data;
-          } catch (error) {
-            console.error(`Error processing chunk ${chunkIndex}:`, error?.message);
-            return null;
-          }
-        });
+        // Generate embedding using OpenAI
+        const embedding = await this.generateEmbedding(chunk);
         
-        const batchResults = await Promise.all(batchPromises);
-        vectorResults?.push(...batchResults?.filter(Boolean));
+        // Extract metadata
+        const metadata = this.extractMetadata(chunk, source);
         
-        // Small delay between batches to prevent rate limiting
-        if (i + batchSize < chunks?.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        // Store in Supabase
+        const { data, error } = await supabase?.from('ai_knowledge_vectors')?.insert({
+            content: chunk,
+            chunk_index: i,
+            embedding,
+            metadata,
+            source,
+            topics,
+            book_id: bookId,
+            chunk_size: 1000,
+            overlap_size: 100,
+            quality_score: this.calculateQualityScore(chunk)
+          })?.select()?.single();
+        
+        if (error) {
+          console.error(`Error storing vector chunk ${i}:`, error?.message);
+          continue;
         }
+        
+        vectorResults?.push(data);
       }
       
       // 3. Link vectors to appropriate AI agents
@@ -249,42 +141,38 @@ export class AIVectorKnowledgeService {
         topics,
         source
       };
-    });
+      
+    } catch (error) {
+      console.error('Error processing book to vectors:', error);
+      throw error;
+    }
   }
   
   /**
    * Generate embedding using OpenAI text-embedding-3-large
-   * ENHANCED: Added error handling and fallback
+   * @param {string} text - Text to embed
+   * @returns {Promise<number[]>} Embedding vector
    */
   static async generateEmbedding(text) {
-    return this._safeApiCall('generateEmbedding', async () => {
-      if (!text || text?.trim()?.length === 0) {
-        throw new Error('Empty text provided for embedding');
-      }
-      
-      // Truncate text if too long to prevent API errors
-      const maxLength = 8000; // Conservative limit for text-embedding-3-large
-      const truncatedText = text?.length > maxLength ? text?.substring(0, maxLength) : text;
-      
+    try {
       const response = await openai?.embeddings?.create({
         model: 'text-embedding-3-large',
-        input: truncatedText,
+        input: text,
       });
       
-      if (!response?.data?.[0]?.embedding) {
-        throw new Error('Invalid embedding response from OpenAI');
-      }
-      
       return response?.data?.[0]?.embedding;
-    });
+    } catch (error) {
+      console.error('Error generating embedding:', error);
+      throw error;
+    }
   }
   
   /**
    * MULTI-BOOK PROCESSING - Enhanced for AAS Efficiency
-   * ENHANCED: Added proper error handling and progress tracking
+   * Process multiple books simultaneously for maximum knowledge density
    */
   static async processBooksToVectors(booksData, processingOptions = {}) {
-    return this._safeApiCall('processBooksToVectors', async () => {
+    try {
       const results = {
         success: true,
         books_processed: 0,
@@ -293,8 +181,8 @@ export class AIVectorKnowledgeService {
         knowledge_expansion: {}
       };
       
-      // Process books sequentially to prevent overwhelming the system
-      for (const bookData of booksData) {
+      // Process books in parallel for efficiency
+      const bookPromises = booksData?.map(async (bookData) => {
         try {
           const { pdfContent, bookId, source, customTopics } = bookData;
           
@@ -310,7 +198,14 @@ export class AIVectorKnowledgeService {
             pdfContent, 
             bookId, 
             source, 
-            bookConfig?.topics
+            bookConfig?.topics,
+            {
+              priority: bookConfig?.priority,
+              target_agents: bookConfig?.agents,
+              enhanced_chunking: true,
+              quality_threshold: 0.7,
+              ...processingOptions
+            }
           );
           
           results.books_processed++;
@@ -321,43 +216,43 @@ export class AIVectorKnowledgeService {
             agents: bookConfig?.agents
           };
           
+          return processResult;
+          
         } catch (error) {
           results?.processing_errors?.push({
             source: bookData?.source,
             error: error?.message
           });
+          return null;
         }
-        
-        // Delay between books to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      });
+      
+      await Promise.all(bookPromises);
       
       // Update cache with expanded knowledge
       await this.updateExpandedVectorCache();
       
       return results;
-    });
+      
+    } catch (error) {
+      console.error('Error in multi-book processing:', error);
+      throw error;
+    }
   }
   
   /**
    * Perform RAG query with semantic search
-   * ENHANCED: Added caching and error recovery
+   * @param {string} query - User query
+   * @param {string} agentContext - Agent context for filtering
+   * @param {number} maxResults - Maximum results to return
+   * @returns {Promise<Object>} RAG query results
    */
   static async ragQuery(query, agentContext = null, maxResults = 5) {
-    return this._safeApiCall('ragQuery', async () => {
-      if (!query || query?.trim()?.length === 0) {
-        throw new Error('Empty query provided');
-      }
+    try {
+      // Generate query embedding
+      const queryEmbedding = await this.generateEmbedding(query);
       
-      // Generate query embedding with timeout
-      const queryEmbedding = await Promise.race([
-        this.generateEmbedding(query),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query embedding timeout')), 30000)
-        )
-      ]);
-      
-      // Search similar vectors with error handling
+      // Search similar vectors
       const { data: vectors, error } = await supabase?.rpc('search_knowledge_vectors', {
           query_embedding: queryEmbedding,
           match_threshold: 0.78,
@@ -366,74 +261,52 @@ export class AIVectorKnowledgeService {
         });
       
       if (error) {
-        console.error('Vector search error:', error);
-        throw new Error(`Vector search failed: ${error.message}`);
+        throw error;
       }
       
-      if (!vectors || vectors?.length === 0) {
-        return {
-          answer: "Je n'ai pas trouvé d'informations pertinentes dans ma base de connaissances pour répondre à votre question.",
-          sources: [],
-          agent_context: agentContext,
-          query
-        };
-      }
-      
-      // Generate contextual response with fallback
+      // Generate contextual response
       const context = vectors?.map(v => v?.content)?.join('\n\n') || '';
       
-      try {
-        const response = await Promise.race([
-          openai?.chat?.completions?.create({
-            model: 'gpt-4o', // Use more reliable model
-            messages: [
-              {
-                role: 'system',
-                content: `Tu es un expert en trading quantitatif et comportemental. Utilise les connaissances de Thomas Mazzoni (finance quantitative) et Peter Lynch (investissement comportemental) pour répondre aux questions.
-                
+      const response = await openai?.chat?.completions?.create({
+        model: 'gpt-5',
+        messages: [
+          {
+            role: 'system',
+            content: `Tu es un expert en trading quantitatif et comportemental. Utilise les connaissances de Thomas Mazzoni (finance quantitative) et Peter Lynch (investissement comportemental) pour répondre aux questions.
+            
 Context disponible:
 ${context}
 
 Réponds en français avec une approche combinant rigueur mathématique et intuition de marché.`
-              },
-              {
-                role: 'user',
-                content: query
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: 1000
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('OpenAI response timeout')), 45000)
-          )
-        ]);
-        
-        return {
-          answer: response?.choices?.[0]?.message?.content || 'Réponse non disponible',
-          sources: vectors,
-          agent_context: agentContext,
-          query
-        };
-      } catch (error) {
-        console.error('OpenAI completion error:', error);
-        return {
-          answer: `Erreur lors de la génération de la réponse: ${error?.message}. Cependant, j'ai trouvé ${vectors?.length} sources pertinentes dans ma base de connaissances.`,
-          sources: vectors,
-          agent_context: agentContext,
-          query,
-          error: error?.message
-        };
-      }
-    });
+          },
+          {
+            role: 'user',
+            content: query
+          }
+        ],
+        reasoning_effort: 'high',
+        verbosity: 'medium'
+      });
+      
+      return {
+        answer: response?.choices?.[0]?.message?.content,
+        sources: vectors,
+        agent_context: agentContext,
+        query
+      };
+      
+    } catch (error) {
+      console.error('Error in RAG query:', error);
+      throw error;
+    }
   }
   
   /**
    * ENHANCED RAG QUERY - Multi-Book Intelligence
-   * ENHANCED: Better error handling and fallback mechanisms
+   * Leverages expanded knowledge base for superior AI responses
    */
   static async enhancedRagQuery(query, agentContext = null, maxResults = 10) {
-    return this._safeApiCall('enhancedRagQuery', async () => {
+    try {
       // Generate query embedding
       const queryEmbedding = await this.generateEmbedding(query);
       
@@ -446,17 +319,6 @@ Réponds en français avec une approche combinant rigueur mathématique et intui
         });
       
       if (error) throw error;
-      
-      if (!vectors || vectors?.length === 0) {
-        return {
-          answer: "Aucune information pertinente trouvée dans la base de connaissances étendue.",
-          sources: [],
-          source_diversity: 0,
-          agent_context: agentContext,
-          query,
-          knowledge_breadth: 0
-        };
-      }
       
       // Enhanced context building from multiple sources
       const contextSections = vectors?.map(v => ({
@@ -482,13 +344,12 @@ Réponds en français avec une approche combinant rigueur mathématique et intui
         })?.join('\n\n');
       
       // Enhanced AI response with multi-book knowledge
-      try {
-        const response = await openai?.chat?.completions?.create({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: `Tu es un expert trading IA avec accès à une bibliothèque étendue des meilleurs livres de finance.
+      const response = await openai?.chat?.completions?.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `Tu es un expert trading IA avec accès à une bibliothèque étendue des meilleurs livres de finance.
 
 Sources disponibles: ${vectors?.map(v => v?.source)?.filter((v, i, arr) => arr?.indexOf(v) === i)?.join(', ')}
 
@@ -501,193 +362,134 @@ Instructions:
 - Donner des recommandations concrètes pour l'AAS
 - Citer les sources spécifiques
 - Adapter au contexte agent: ${agentContext || 'généraliste'}`
-            },
-            {
-              role: 'user',
-              content: query
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500
-        });
-        
-        return {
-          answer: response?.choices?.[0]?.message?.content,
-          sources: vectors,
-          source_diversity: Object.keys(sourceGroups)?.length,
-          agent_context: agentContext,
-          query,
-          knowledge_breadth: vectors?.length || 0
-        };
-      } catch (error) {
-        return {
-          answer: `Erreur lors de la génération de la réponse améliorée: ${error?.message}`,
-          sources: vectors,
-          source_diversity: Object.keys(sourceGroups)?.length,
-          agent_context: agentContext,
-          query,
-          knowledge_breadth: vectors?.length || 0,
-          error: error?.message
-        };
-      }
-    });
+          },
+          {
+            role: 'user',
+            content: query
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1500
+      });
+      
+      return {
+        answer: response?.choices?.[0]?.message?.content,
+        sources: vectors,
+        source_diversity: Object.keys(sourceGroups)?.length,
+        agent_context: agentContext,
+        query,
+        knowledge_breadth: vectors?.length || 0
+      };
+      
+    } catch (error) {
+      console.error('Error in enhanced RAG query:', error);
+      throw error;
+    }
   }
   
   /**
    * Link knowledge vectors to appropriate AI agents
-   * ENHANCED: Better error handling and batch processing
+   * @param {Array} vectors - Processed vectors
+   * @param {string[]} topics - Topic categories
    */
   static async linkVectorsToAgents(vectors, topics) {
-    return this._safeApiCall('linkVectorsToAgents', async () => {
-      if (!vectors || vectors?.length === 0 || !topics || topics?.length === 0) {
-        return;
-      }
-      
+    try {
       const agentMappings = {
         'quantitative_finance': ['Quant Oracle', 'Strategy Weaver'],
         'behavioral_investing': ['Strategy Weaver', 'BehavioralSentimentAI', 'Cognitive Coach']
       };
       
-      const linkPromises = [];
-      
       for (const vector of vectors) {
-        if (!vector?.id) continue;
-        
         for (const topic of topics) {
           const relevantAgents = agentMappings?.[topic] || [];
           
           for (const agentName of relevantAgents) {
-            linkPromises?.push(
-              this._linkSingleVectorToAgent(vector, topic, agentName)
-            );
+            // Find agent by name
+            const { data: agent } = await supabase?.from('ai_agents')?.select('id')?.eq('name', agentName)?.single();
+            
+            if (agent) {
+              await supabase?.from('ai_agent_knowledge_links')?.insert({
+                  agent_id: agent?.id,
+                  vector_id: vector?.id,
+                  relevance_score: this.calculateRelevanceScore(topic, agentName),
+                  agent_name: agentName,
+                  knowledge_category: topic,
+                  priority_level: topic === 'quantitative_finance' ? 1 : 2
+                });
+            }
           }
         }
       }
-      
-      // Process links in batches to prevent overwhelming the database
-      const batchSize = 10;
-      for (let i = 0; i < linkPromises?.length; i += batchSize) {
-        const batch = linkPromises?.slice(i, i + batchSize);
-        await Promise.allSettled(batch);
-        
-        // Small delay between batches
-        if (i + batchSize < linkPromises?.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-    });
-  }
-
-  /**
-   * ADDED: Helper method for linking single vector to agent
-   */
-  static async _linkSingleVectorToAgent(vector, topic, agentName) {
-    try {
-      // Find agent by name
-      const { data: agent } = await supabase?.from('ai_agents')?.select('id')?.eq('name', agentName)?.single();
-      
-      if (agent) {
-        await supabase?.from('ai_agent_knowledge_links')?.insert({
-            agent_id: agent?.id,
-            vector_id: vector?.id,
-            relevance_score: this.calculateRelevanceScore(topic, agentName),
-            agent_name: agentName,
-            knowledge_category: topic,
-            priority_level: topic === 'quantitative_finance' ? 1 : 2
-          });
-      }
     } catch (error) {
-      console.error(`Error linking vector ${vector?.id} to agent ${agentName}:`, error?.message);
+      console.error('Error linking vectors to agents:', error);
     }
   }
   
   /**
    * Clean PDF content by removing metadata and formatting issues
-   * ENHANCED: Better error handling
+   * @param {string} content - Raw PDF content
+   * @returns {string} Cleaned content
    */
   static cleanPDFContent(content) {
-    if (!content || typeof content !== 'string') {
-      console.warn('Invalid content provided to cleanPDFContent');
-      return '';
-    }
-    
-    try {
-      return (
-        content
-          ?.replace(/\n{3,}/g, '\n\n')
-          ?.replace(/\s+/g, ' ')
-          ?.replace(/[^\w\s\.,;:!?()+-=\/<>""'']/g, '')
-          ?.trim()
-      ) || '';
-    } catch (error) {
-      console.error('Error cleaning PDF content:', error);
-      return content; // Return original content if cleaning fails
-    }
+    return (
+      // Remove unwanted characters
+      // Normalize whitespace
+      // Remove excessive newlines
+      (content?.replace(/\n{3,}/g, '\n\n')?.replace(/\s+/g, ' ')?.replace(/[^\w\s\.,;:!?()+-=\/<>""'']/g, '')?.trim())
+    );
   }
   
   /**
    * Split text into overlapping chunks
-   * ENHANCED: Better error handling and validation
+   * @param {string} text - Text to chunk
+   * @param {number} chunkSize - Size of each chunk
+   * @param {number} overlap - Overlap between chunks
+   * @returns {string[]} Array of text chunks
    */
   static chunkText(text, chunkSize = 1000, overlap = 100) {
-    if (!text || typeof text !== 'string') {
-      console.warn('Invalid text provided to chunkText');
-      return [];
-    }
-    
     const chunks = [];
     let start = 0;
     
-    try {
-      while (start < text?.length) {
-        const end = Math.min(start + chunkSize, text?.length);
-        const chunk = text?.slice(start, end);
-        
-        // Ensure we don't split words
-        const lastSpaceIndex = chunk?.lastIndexOf(' ');
-        const finalChunk = lastSpaceIndex > chunkSize * 0.8 ? 
-          chunk?.slice(0, lastSpaceIndex) : chunk;
-        
-        if (finalChunk?.trim()?.length > 50) {
-          chunks?.push(finalChunk?.trim());
-        }
-        
-        start += chunkSize - overlap;
-      }
-    } catch (error) {
-      console.error('Error chunking text:', error);
-      return [text]; // Return original text as single chunk if chunking fails
+    while (start < text?.length) {
+      const end = Math.min(start + chunkSize, text?.length);
+      const chunk = text?.slice(start, end);
+      
+      // Ensure we don't split words
+      const lastSpaceIndex = chunk?.lastIndexOf(' ');
+      const finalChunk = lastSpaceIndex > chunkSize * 0.8 ? 
+        chunk?.slice(0, lastSpaceIndex) : chunk;
+      
+      chunks?.push(finalChunk);
+      start += chunkSize - overlap;
     }
     
-    return chunks;
+    return chunks?.filter(chunk => chunk?.trim()?.length > 50); // Filter very short chunks
   }
   
   /**
    * Extract metadata from content chunk
-   * ENHANCED: Better error handling
+   * @param {string} chunk - Text chunk
+   * @param {string} source - Book source
+   * @returns {Object} Extracted metadata
    */
   static extractMetadata(chunk, source) {
     const metadata = {
-      source: source || 'Unknown',
+      source,
       language: 'fr',
-      date_added: new Date()?.toISOString()?.split('T')?.[0]
+      date_added: '2025-10-09'
     };
     
-    try {
-      // Extract concepts based on source
-      if (source === 'Thomas Mazzoni') {
-        metadata.topics = ['quantitative_finance'];
-        if (chunk?.includes('Black-Scholes')) metadata.concept = 'Black-Scholes';
-        if (chunk?.includes('volatilité')) metadata.concept = 'volatility_modeling';
-        if (chunk?.includes('diffusion')) metadata.concept = 'stochastic_processes';
-      } else if (source === 'Peter Lynch') {
-        metadata.topics = ['behavioral_investing'];
-        if (chunk?.includes('10-bagger')) metadata.concept = '10-bagger';
-        if (chunk?.includes('psychologie')) metadata.concept = 'market_psychology';
-        if (chunk?.includes('consommateur')) metadata.concept = 'consumer_signals';
-      }
-    } catch (error) {
-      console.error('Error extracting metadata:', error);
+    // Extract concepts based on source
+    if (source === 'Thomas Mazzoni') {
+      metadata.topics = ['quantitative_finance'];
+      if (chunk?.includes('Black-Scholes')) metadata.concept = 'Black-Scholes';
+      if (chunk?.includes('volatilité')) metadata.concept = 'volatility_modeling';
+      if (chunk?.includes('diffusion')) metadata.concept = 'stochastic_processes';
+    } else if (source === 'Peter Lynch') {
+      metadata.topics = ['behavioral_investing'];
+      if (chunk?.includes('10-bagger')) metadata.concept = '10-bagger';
+      if (chunk?.includes('psychologie')) metadata.concept = 'market_psychology';
+      if (chunk?.includes('consommateur')) metadata.concept = 'consumer_signals';
     }
     
     return metadata;
@@ -695,37 +497,31 @@ Instructions:
   
   /**
    * Calculate quality score for content chunk
-   * ENHANCED: Better validation
+   * @param {string} chunk - Text chunk
+   * @returns {number} Quality score (0-1)
    */
   static calculateQualityScore(chunk) {
-    if (!chunk || typeof chunk !== 'string') {
-      return 0;
-    }
+    let score = 0.5; // Base score
     
-    try {
-      let score = 0.5; // Base score
-      
-      // Increase score for mathematical content
-      if (chunk?.match(/[=+\-*/()]/g)) score += 0.2;
-      
-      // Increase score for key trading terms
-      const tradingTerms = ['stratégie', 'trading', 'bourse', 'investissement', 'risque'];
-      const matches = tradingTerms?.filter(term => chunk?.toLowerCase()?.includes(term));
-      score += matches?.length * 0.1;
-      
-      // Decrease score for very short or repetitive content
-      if (chunk?.length < 100) score -= 0.3;
-      
-      return Math.max(0, Math.min(1, score));
-    } catch (error) {
-      console.error('Error calculating quality score:', error);
-      return 0.5; // Return neutral score on error
-    }
+    // Increase score for mathematical content
+    if (chunk?.match(/[=+\-*/()]/g)) score += 0.2;
+    
+    // Increase score for key trading terms
+    const tradingTerms = ['stratégie', 'trading', 'bourse', 'investissement', 'risque'];
+    const matches = tradingTerms?.filter(term => chunk?.toLowerCase()?.includes(term));
+    score += matches?.length * 0.1;
+    
+    // Decrease score for very short or repetitive content
+    if (chunk?.length < 100) score -= 0.3;
+    
+    return Math.max(0, Math.min(1, score));
   }
   
   /**
    * Calculate relevance score between topic and agent
-   * ENHANCED: Better validation
+   * @param {string} topic - Knowledge topic
+   * @param {string} agentName - AI agent name
+   * @returns {number} Relevance score
    */
   static calculateRelevanceScore(topic, agentName) {
     const relevanceMatrix = {
@@ -747,27 +543,13 @@ Instructions:
   
   /**
    * Get knowledge vectors count and statistics
-   * ENHANCED: Better error handling and fallback data
+   * @returns {Promise<Object>} Knowledge base statistics
    */
   static async getKnowledgeStats() {
-    return this._safeApiCall('getKnowledgeStats', async () => {
-      const { data, error } = await supabase
-        ?.from('ai_knowledge_vectors')
-        ?.select('id, topics, source, quality_score')
-        ?.order('created_at', { ascending: false })
-        ?.limit(1000); // Limit to prevent memory issues
+    try {
+      const { data, error } = await supabase?.from('ai_knowledge_vectors')?.select('id, topics, source, quality_score')?.order('created_at', { ascending: false });
       
-      if (error) {
-        console.error('Error getting knowledge stats:', error);
-        // Return fallback data instead of throwing
-        return {
-          total_vectors: 0,
-          by_topic: {},
-          by_source: {},
-          average_quality: 0,
-          error: error?.message
-        };
-      }
+      if (error) throw error;
       
       const stats = {
         total_vectors: data?.length || 0,
@@ -776,95 +558,77 @@ Instructions:
         average_quality: 0
       };
       
-      try {
-        data?.forEach(vector => {
-          // Count by topics
-          if (Array.isArray(vector?.topics)) {
-            vector?.topics?.forEach(topic => {
-              stats.by_topic[topic] = (stats?.by_topic?.[topic] || 0) + 1;
-            });
-          }
-          
-          // Count by source
-          if (vector?.source) {
-            stats.by_source[vector.source] = (stats?.by_source?.[vector?.source] || 0) + 1;
-          }
+      data?.forEach(vector => {
+        // Count by topics
+        vector?.topics?.forEach(topic => {
+          stats.by_topic[topic] = (stats?.by_topic?.[topic] || 0) + 1;
         });
         
-        // Calculate average quality
-        const validQualities = data?.filter(v => typeof v?.quality_score === 'number')?.map(v => v?.quality_score) || [];
-        stats.average_quality = validQualities?.length > 0 
-          ? validQualities?.reduce((sum, q) => sum + q, 0) / validQualities?.length 
-          : 0;
-      } catch (error) {
-        console.error('Error processing knowledge stats:', error);
-      }
+        // Count by source
+        stats.by_source[vector.source] = (stats?.by_source?.[vector?.source] || 0) + 1;
+      });
+      
+      // Calculate average quality
+      const totalQuality = data?.reduce((sum, v) => sum + (v?.quality_score || 0), 0) || 0;
+      stats.average_quality = data?.length > 0 ? totalQuality / data?.length : 0;
       
       return stats;
-    });
+    } catch (error) {
+      console.error('Error getting knowledge stats:', error);
+      throw error;
+    }
   }
   
   /**
    * Test RAG system with sample query
-   * ENHANCED: Better error handling and timeout
+   * @param {string} testQuery - Test query
+   * @returns {Promise<Object>} Test results
    */
   static async testRAGSystem(testQuery = "Qu'est-ce qu'un 10-bagger selon Lynch et comment l'IA peut-elle le détecter ?") {
     try {
-      const startTime = Date.now();
-      
-      const result = await Promise.race([
-        this.ragQuery(testQuery),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Test timeout')), 60000)
-        )
-      ]);
-      
-      const processingTime = Date.now() - startTime;
+      const result = await this.ragQuery(testQuery);
       
       return {
         query: testQuery,
         success: true,
         response_length: result?.answer?.length || 0,
         sources_count: result?.sources?.length || 0,
-        processing_time: `${processingTime}ms`,
-        timestamp: new Date()?.toISOString()
+        processing_time: new Date()?.toISOString()
       };
     } catch (error) {
       return {
         query: testQuery,
         success: false,
         error: error?.message,
-        processing_time: 'N/A',
-        timestamp: new Date()?.toISOString()
+        processing_time: new Date()?.toISOString()
       };
     }
   }
   
   /**
    * Update vector cache (scheduled task)
-   * ENHANCED: Better error handling and timeout protection
+   * @param {string[]} topicsToRefresh - Topics to refresh
+   * @returns {Promise<void>}
    */
   static async updateVectorCache(topicsToRefresh = ['quantitative_finance', 'behavioral_investing']) {
-    return this._safeApiCall('updateVectorCache', async () => {
-      const { error } = await Promise.race([
-        supabase?.rpc('update_vector_cache'),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Cache update timeout')), 120000)
-        )
-      ]);
+    try {
+      const { error } = await supabase?.rpc('update_vector_cache');
       
       if (error) throw error;
       
       console.log('[RAG] Knowledge base refreshed successfully');
-    });
+    } catch (error) {
+      console.error('[RAG] Cache update failed:', error);
+      throw error;
+    }
   }
   
   /**
    * BULK BOOK INGESTION - AAS Knowledge Acceleration
-   * ENHANCED: Better progress tracking and error recovery
+   * Upload and process multiple PDF books in one operation
    */
   static async bulkIngestBooks(bookFiles, options = {}) {
-    return this._safeApiCall('bulkIngestBooks', async () => {
+    try {
       const results = {
         ingested: 0,
         failed: 0,
@@ -930,19 +694,21 @@ Instructions:
       }
       
       return results;
-    });
+      
+    } catch (error) {
+      console.error('Error in bulk book ingestion:', error);
+      throw error;
+    }
   }
   
   /**
    * KNOWLEDGE EXPANSION METRICS - AAS Intelligence Tracking
-   * ENHANCED: Better error handling
    */
   static async getKnowledgeExpansionMetrics() {
-    return this._safeApiCall('getKnowledgeExpansionMetrics', async () => {
+    try {
       const { data: vectors, error } = await supabase
         ?.from('ai_knowledge_vectors')
-        ?.select('source, topics, quality_score, created_at')
-        ?.limit(5000); // Limit to prevent memory issues
+        ?.select('source, topics, quality_score, created_at');
       
       if (error) throw error;
       
@@ -964,22 +730,18 @@ Instructions:
       // Calculate knowledge density by source
       vectors?.forEach(vector => {
         const source = vector?.source;
-        if (source) {
-          if (!metrics?.knowledge_density?.[source]) {
-            metrics.knowledge_density[source] = 0;
-          }
-          metrics.knowledge_density[source]++;
+        if (!metrics?.knowledge_density?.[source]) {
+          metrics.knowledge_density[source] = 0;
         }
+        metrics.knowledge_density[source]++;
         
         // Track topic coverage
-        if (Array.isArray(vector?.topics)) {
-          vector?.topics?.forEach(topic => {
-            if (!metrics?.topic_coverage?.[topic]) {
-              metrics.topic_coverage[topic] = 0;
-            }
-            metrics.topic_coverage[topic]++;
-          });
-        }
+        vector?.topics?.forEach(topic => {
+          if (!metrics?.topic_coverage?.[topic]) {
+            metrics.topic_coverage[topic] = 0;
+          }
+          metrics.topic_coverage[topic]++;
+        });
         
         // Quality distribution
         const quality = vector?.quality_score || 0;
@@ -989,76 +751,61 @@ Instructions:
       });
       
       return metrics;
-    });
+      
+    } catch (error) {
+      console.error('Error getting expansion metrics:', error);
+      throw error;
+    }
   }
   
   /**
    * Update vector cache with expanded topics
-   * ENHANCED: Better timeout handling
    */
   static async updateExpandedVectorCache(topicsToRefresh = null) {
-    return this._safeApiCall('updateExpandedVectorCache', async () => {
+    try {
       const allTopics = topicsToRefresh || [
         'quantitative_finance', 'behavioral_investing', 'value_investing',
         'algorithmic_trading', 'risk_management', 'market_cycles',
         'portfolio_optimization', 'behavioral_economics', 'systematic_investing'
       ];
       
-      const { error } = await Promise.race([
-        supabase?.rpc('update_vector_cache'),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Expanded cache update timeout')), 180000)
-        )
-      ]);
-      
+      const { error } = await supabase?.rpc('update_vector_cache');
       if (error) throw error;
       
       console.log('[RAG] Expanded knowledge base cache updated:', allTopics);
-    });
-  }
-  
-  /**
-   * Extract PDF content (placeholder - assumes PDF processing utility exists)
-   * ENHANCED: Better error handling
-   */
-  static async extractPDFContent(file) {
-    try {
-      // This would be implemented with actual PDF processing library
-      // For now, return placeholder with validation
-      if (!file) {
-        throw new Error('No file provided for PDF extraction');
-      }
       
-      return 'PDF content extraction placeholder - replace with actual implementation';
     } catch (error) {
-      console.error('Error extracting PDF content:', error);
+      console.error('[RAG] Expanded cache update failed:', error);
       throw error;
     }
   }
   
   /**
+   * Extract PDF content (placeholder - assumes PDF processing utility exists)
+   * @param {File} file - PDF file
+   * @returns {Promise<string>} PDF text content
+   */
+  static async extractPDFContent(file) {
+    // This would be implemented with actual PDF processing library
+    // For now, return placeholder
+    return 'PDF content extraction placeholder';
+  }
+  
+  /**
    * Auto-detect book metadata from content
-   * ENHANCED: Better validation
+   * @param {string} content - PDF content
+   * @param {string} filename - Book filename
+   * @returns {Object} Detected metadata
    */
   static detectBookMetadata(content, filename) {
-    try {
-      // This would be implemented with actual metadata detection logic
-      // For now, return placeholder with validation
-      return {
-        title: filename?.replace(/\.[^/.]+$/, '') || 'Unknown Title',
-        author: 'Unknown Author',
-        category: 'General Trading',
-        topics: ['general_trading']
-      };
-    } catch (error) {
-      console.error('Error detecting book metadata:', error);
-      return {
-        title: 'Unknown Title',
-        author: 'Unknown Author',
-        category: 'General Trading',
-        topics: ['general_trading']
-      };
-    }
+    // This would be implemented with actual metadata detection logic
+    // For now, return placeholder
+    return {
+      title: filename?.replace(/\.[^/.]+$/, ''),
+      author: 'Unknown Author',
+      category: 'General Trading',
+      topics: ['general_trading']
+    };
   }
 }
 

@@ -35,41 +35,67 @@ services:
       - "traefik.http.routers.http-catchall.rule=HostRegexp(`{any:.+}`)"
       - "traefik.http.routers.http-catchall.entrypoints=web" -"traefik.http.routers.http-catchall.middlewares=redirect-to-https@docker" -"traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" -"traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mvp-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - SUPABASE_URL=${VITE_SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${VITE_SUPABASE_ANON_KEY}
+      - INTERNAL_ADMIN_KEY=${VITE_INTERNAL_ADMIN_KEY}
+      - PORT=8080
+      - REDIS_URL=redis://redis:6379
+      # ===== AI Providers (tous, pour éviter les erreurs de modules) =====
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY:-}
+      # Sélection par défaut (fallback si un provider manque)
+      - AI_PROVIDER_DEFAULT=${AI_PROVIDER_DEFAULT:-openai}
+      - AI_TIMEOUT_MS=${AI_TIMEOUT_MS:-25000}
+      # ===== IBKR (Paper) =====
+      - IBKR_MODE=${IBKR_MODE:-paper}
+      - IBKR_HOST=${IBKR_HOST:-127.0.0.1}
+      - IBKR_PORT=${IBKR_PORT:-7497}
+      - IBKR_CLIENT_ID=${IBKR_CLIENT_ID:-1}
+      - IBKR_ACCOUNT=${IBKR_ACCOUNT:-DUN766038}
+      - IBKR_READ_ONLY=${IBKR_READ_ONLY:-false}
+      # ===== Sécurité exécution =====
+      - MAX_POS_PER_SYMBOL=${MAX_POS_PER_SYMBOL:-1000}
+      - MAX_NOTIONAL_PER_SYMBOL=${MAX_NOTIONAL_PER_SYMBOL:-25000}
+      - MAX_LEVERAGE=${MAX_LEVERAGE:-2}
+      - DAILY_LOSS_STOP=${DAILY_LOSS_STOP:--500}
+    networks: [web]
+    depends_on:
+      - redis
+    labels:
+      - "traefik.enable=true"
+      # Backend router pour /security avec priorité haute
+      - "traefik.http.routers.backend-rls.rule=Host(`rockettra3991.builtwithrocket.new`) && PathPrefix(`/security`)"
+      - "traefik.http.routers.backend-rls.entrypoints=websecure" -"traefik.http.routers.backend-rls.tls=true" -"traefik.http.routers.backend-rls.tls.certresolver=letsencrypt"
+      # Priorité supérieure au catch-all du front
+      - "traefik.http.routers.backend-rls.priority=100" -"traefik.http.services.backend-rls.loadbalancer.server.port=8080"
+      # Router pour les APIs générales  
+      - "traefik.http.routers.backend-api.rule=Host(`rockettra3991.builtwithrocket.new`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api.entrypoints=websecure" -"traefik.http.routers.backend-api.tls=true" -"traefik.http.routers.backend-api.tls.certresolver=letsencrypt" -"traefik.http.routers.backend-api.priority=90" -"traefik.http.services.backend-api.loadbalancer.server.port=8080"
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://trading-mvp.com/api}
+        - VITE_API_BASE_URL=https://rockettra3991.builtwithrocket.new/api
     container_name: mvp-frontend
     restart: unless-stopped
     networks: [web]
     labels:
-      - "traefik.enable=true" -"traefik.http.routers.frontend.rule=Host(`trading-mvp.com`)" -"traefik.http.routers.frontend.entrypoints=websecure" -"traefik.http.routers.frontend.tls.certresolver=letsencrypt" -"traefik.http.services.frontend.loadbalancer.server.port=80" -"traefik.http.services.frontend.loadbalancer.healthcheck.path=/healthz" -"traefik.http.services.frontend.loadbalancer.healthcheck.interval=30s" -"traefik.http.services.frontend.loadbalancer.healthcheck.timeout=5s"
-      # Apply security headers and SPA fallback
-      - "traefik.http.routers.frontend.middlewares=sec-headers@file,spa-fallback@file"
-
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: mvp-api
-    restart: unless-stopped
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - INTERNAL_ADMIN_KEY=${INTERNAL_ADMIN_KEY}
-      - PORT=3000
-      - REDIS_URL=redis://redis:6379
-      - REDIS_TTL_QUOTES=${REDIS_TTL_QUOTES:-300}
-      - REDIS_TTL_OHLC=${REDIS_TTL_OHLC:-3600}
-    networks: [web]
-    depends_on:
-      - redis
-    labels:
-      - "traefik.enable=true" -"traefik.http.routers.api.rule=Host(`trading-mvp.com`) && PathPrefix(`/api`)" -"traefik.http.routers.api.entrypoints=websecure" -"traefik.http.routers.api.tls.certresolver=letsencrypt" -"traefik.http.services.api.loadbalancer.server.port=3000" -"traefik.http.services.api.loadbalancer.healthcheck.path=/api/health" -"traefik.http.services.api.loadbalancer.healthcheck.interval=30s" -"traefik.http.services.api.loadbalancer.healthcheck.timeout=5s"
-      # Apply security headers and rate limiting
-      - "traefik.http.routers.api.middlewares=sec-headers@file,rl-api@file"
+      - "traefik.enable=true"
+      # Catch-all pour le front, priorité plus basse
+      - "traefik.http.routers.frontend.rule=Host(`rockettra3991.builtwithrocket.new`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure" -"traefik.http.routers.frontend.tls=true" -"traefik.http.routers.frontend.tls.certresolver=letsencrypt" -"traefik.http.routers.frontend.priority=10" -"traefik.http.services.frontend.loadbalancer.server.port=80"
 
   redis:
     image: redis:7-alpine

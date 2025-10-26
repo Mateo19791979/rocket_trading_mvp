@@ -12,10 +12,35 @@ class ProviderRouterService {
 
   // Synchronize Supabase providers table with API calls
   async getKeys() {
-    const { data, error } = await this.supabase?.from('providers')?.select('finnhub_api, alpha_api, twelve_api')?.eq('id', 'default')?.single();
-    
-    if (error) throw error;
-    return data || {};
+    // PRIORITY: Environment variables first, then fallback to database
+    const envKeys = {
+      finnhub_api: process.env?.FINNHUB_API_KEY,
+      alpha_api: process.env?.ALPHAVANTAGE_API_KEY,
+      twelve_api: process.env?.TWELVEDATA_API_KEY
+    };
+
+    // If all environment variables are present, use them
+    if (envKeys?.finnhub_api && envKeys?.alpha_api && envKeys?.twelve_api) {
+      console.log('🔑 Using provider API keys from environment variables');
+      return envKeys;
+    }
+
+    // Otherwise, fallback to database
+    try {
+      const { data, error } = await this.supabase?.from('providers')?.select('finnhub_api, alpha_api, twelve_api')?.eq('id', 'default')?.single();
+      
+      if (error) throw error;
+      
+      // Merge environment variables with database values (env takes priority)
+      return {
+        finnhub_api: envKeys?.finnhub_api || data?.finnhub_api || null,
+        alpha_api: envKeys?.alpha_api || data?.alpha_api || null,
+        twelve_api: envKeys?.twelve_api || data?.twelve_api || null
+      };
+    } catch (error) {
+      console.warn('⚠️ Database fallback failed, using environment variables only:', error?.message);
+      return envKeys;
+    }
   }
 
   async updateKeys(keys) {

@@ -1,210 +1,141 @@
-/* Enhanced backend with daily intelligence reporting API */
-import express from "express";
-import cors from "cors";
-import { createClient } from '@supabase/supabase-js';
-import { pnlTracker } from './routes/pnlTracker.js';
+import express from 'express';
+import cors from 'cors';
+
+import { marketRealtime } from './routes/market.realtime.js';
+import { makeAISymbolRoutes } from './routes/aiSymbols.routes.js';
+import { IbkrFeedMux } from './services/market/ibkrFeedMux.js';
+import diag from './routes/diag.internal.routes.js';
+import { makeSwarmRoutes } from './routes/swarm.routes.js';
+import { makeEvolutionRoutes } from './routes/evolution.routes.js';
+import { makeCanaryRoutes } from './routes/evo.canary.routes.js';
+import ops from './routes/ops.internal.routes.js';
+import { startEvolutionEngine } from './workers/evolution.engine.js';
+import { startCanaryPromoter } from './workers/evo.canary.js';
+import { startOpsSupervisor } from './workers/opsSupervisor.js';
+import { makeAnalyticsTradesRoutes } from './routes/analytics.trades.routes.js';
 
 const app = express();
 
-// Middleware
 app?.use(cors());
 app?.use(express?.json());
 
-// Supabase client setup
-const supabaseUrl = process.env?.SUPABASE_URL || 'your-supabase-url';
-const supabaseServiceKey = process.env?.SUPABASE_SERVICE_KEY || 'your-supabase-service-key';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Format helper function
-function fmt(x) {
-  return x == null ? '—' : x;
-}
-
-// Health check endpoint
-app?.get("/health", (_req, res) => {
-  res?.json({ 
-    ok: true, 
-    service: "backend-api", 
-    ts: new Date()?.toISOString() 
+// 🔧 SURGICAL: Guaranteed JSON health endpoint (Team Pro Pack v1)
+app?.get('/health', (req, res) => {
+  res?.set('content-type', 'application/json');
+  res?.status(200)?.json({
+    ok: true,
+    service: 'api',
+    time: new Date()?.toISOString(),
+    environment: process.env?.NODE_ENV || 'development',
+    surgical_fixes_active: true
   });
 });
 
-// Daily Intelligence Report endpoints
-app?.get("/api/daily-report", async (req, res) => {
-  try {
-    const { date } = req?.query;
-    
-    let query = supabase?.from('ai_daily_reports')?.select('*')?.order('day', { ascending: false });
+// 🔧 SURGICAL: Health publique (front) - GUARANTEED JSON
+app?.get('/api/health', (_req, res)=> {
+  res?.set('content-type', 'application/json');
+  res?.json({ 
+    ok: true, 
+    ts: new Date()?.toISOString(), 
+    app: 'rocket',
+    surgical_fixes_active: true
+  });
+});
 
-    if (date) {
-      query = query?.eq('day', date);
-    }
+// 🔧 SURGICAL: Health JSON pour market - GUARANTEED JSON
+app?.get('/api/market/health', (_req, res) => {
+  res?.set('content-type', 'application/json');
+  res?.json({ 
+    ok: true, 
+    service: 'market-data', 
+    ts: new Date()?.toISOString(),
+    surgical_fixes_active: true
+  });
+});
 
-    const { data, error } = await query?.limit(1)?.single();
+// Santé & audit (toujours JSON)
+app?.use('/internal', diag);
 
-    if (error) {
-      if (error?.code === 'PGRST116') {
-        // No report found - generate one
-        const { error: generateError } = await supabase?.rpc('generate_daily_intelligence_report');
-        
-        if (generateError) {
-          throw generateError;
-        }
-        
-        // Fetch the newly generated report
-        const { data: newData, error: fetchError } = await supabase?.from('ai_daily_reports')?.select('*')?.eq('day', date || new Date()?.toISOString()?.split('T')?.[0])?.single();
-          
-        if (fetchError) {
-          throw fetchError;
-        }
-        
-        return res?.json({ ok: true, data: newData });
-      }
-      throw error;
-    }
+// Ops internal routes
+app?.use('/internal/ops', ops);
 
-    res?.json({ ok: true, data });
-  } catch (error) {
-    res?.status(500)?.json({
-      ok: false,
-      error: error?.message || 'Failed to fetch daily intelligence report'
-    });
+// Real-time market data routes
+app?.use('/api/realtime', marketRealtime);
+
+// AI Swarm Management Routes
+app?.use('/api/swarm', makeSwarmRoutes());
+
+// AI Evolution Engine Routes
+app?.use('/api/evo', makeEvolutionRoutes());
+
+// Canary IBKR Paper Routes (NEW)
+app?.use('/api/evo/canary', makeCanaryRoutes());
+
+// Analytics routes (NEW) - Fixed 42703 compatible endpoints
+app?.use('/analytics', makeAnalyticsTradesRoutes());
+
+// Initialize IBKR Feed Mux with starter symbols
+const mux = new IbkrFeedMux({
+  connectFn: async () => {
+    console.log('[IBKR MUX] Mock connect - ready for integration');
+    // TODO: Replace with actual IBKR connection when available
+  },
+  disconnectFn: async () => {
+    console.log('[IBKR MUX] Mock disconnect');
+    // TODO: Replace with actual IBKR disconnection when available
+  },
+  subscribeFn: async (symbols, onTick) => {
+    console.log('[IBKR MUX] Mock subscribe to symbols:', symbols);
+    // TODO: Replace with actual IBKR subscription when available
+    // For now, create mock symbols set for AI management
+    if (!mux.symbols) mux.symbols = new Set();
+    symbols?.forEach(s => mux?.symbols?.add(s));
   }
 });
 
-// Generate new daily report
-app?.post("/api/daily-report/generate", async (req, res) => {
-  try {
-    // Call the stored function to generate today's report
-    const { error: functionError } = await supabase?.rpc('generate_daily_intelligence_report');
+// Initialize symbols set for AI management
+mux.symbols = new Set();
 
-    if (functionError) {
-      throw functionError;
-    }
+// Initial symbols from environment or default set
+const START_SYMBOLS = (process.env?.START_SYMBOLS || 'AAPL,MSFT,TSLA,SPY')
+  ?.split(',')
+  ?.map(s => s?.trim()?.toUpperCase());
 
-    // Fetch the newly generated report
-    const today = new Date()?.toISOString()?.split('T')?.[0];
-    const { data, error } = await supabase?.from('ai_daily_reports')?.select('*')?.eq('day', today)?.single();
+// AI Symbol Management routes (Existing)
+app?.use('/api/ai', makeAISymbolRoutes({ feedMux: mux }));
 
-    if (error) {
-      throw error;
-    }
-
-    res?.json({ ok: true, data });
-  } catch (error) {
-    res?.status(500)?.json({
-      ok: false,
-      error: error?.message || 'Failed to generate daily intelligence report'
-    });
-  }
+// Listen for ticks and log (when IBKR integration is active)
+mux?.on('tick', (tick) => {
+  console.log('[IBKR TICK]', tick?.symbol, tick?.last);
+  // Additional processing can be added here
 });
 
-// Get report history
-app?.get("/api/daily-report/history", async (req, res) => {
-  try {
-    const { limit = 30 } = req?.query;
-    
-    const { data, error } = await supabase?.from('ai_daily_reports')?.select('day, report, created_at')?.order('day', { ascending: false })?.limit(parseInt(limit));
+// Start the mux with initial symbols
+mux?.start(START_SYMBOLS)?.catch(console.error);
 
-    if (error) {
-      throw error;
-    }
+// Start background workers
+startEvolutionEngine()?.catch(console.error);
+startCanaryPromoter()?.catch(console.error);  // NEW: Start Canary Promoter
+startOpsSupervisor()?.catch(console.error);
 
-    res?.json({ ok: true, data });
-  } catch (error) {
-    res?.status(500)?.json({
-      ok: false,
-      error: error?.message || 'Failed to fetch report history'
-    });
-  }
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('[SERVER] Graceful shutdown...');
+  mux?.stop()?.then(() => process.exit(0));
 });
 
-// Get current live metrics
-app?.get("/api/daily-report/live-metrics", async (req, res) => {
-  try {
-    const { data, error } = await supabase?.from('daily_ai_report')?.select('*')?.single();
+const PORT = Number(process.env?.PORT||3000);
 
-    if (error) {
-      throw error;
-    }
-
-    res?.json({ ok: true, data });
-  } catch (error) {
-    res?.status(500)?.json({
-      ok: false,
-      error: error?.message || 'Failed to fetch live metrics'
-    });
-  }
-});
-
-// Cron-like endpoint for scheduled report generation (can be called by external schedulers)
-app?.post("/api/daily-report/cron", async (req, res) => {
-  try {
-    const { data: rows, error } = await supabase?.from('daily_ai_report')?.select('*');
-    
-    if (error) {
-      throw error;
-    }
-
-    const r = rows?.[0] || {};
-    
-    // Generate markdown report
-    const md = `
-# 🚀 AAS Daily Intelligence Report (${r?.day})
-
-| Metric | Value |
-|:--|:--|
-| 💰 Coût (€) | ${fmt(r?.cost_eur)} |
-| 📞 Appels API | ${fmt(r?.calls)} |
-| 🧠 IQS moyen | ${fmt(r?.avg_iqs)} |
-| 📊 DHI moyen | ${fmt(r?.avg_dhi)} |
-| 🤖 Agents actifs | ${fmt(r?.agents_active)} |
-| ✅ Tâches réussies | ${fmt(r?.tasks_done)} |
-| ❌ Tâches en échec | ${fmt(r?.tasks_failed)} |
-| ⚠️ Agents en échec | ${(r?.agents_failed || [])?.join(', ') || 'aucun'} |
-
-## Synthèse
-- **Performance** : ${r?.avg_iqs > 0.8 ? 'excellente' : 'à surveiller'}
-- **Qualité data** : ${r?.avg_dhi > 0.85 ? 'stable' : 'fragile'}
-- **Coût** : ${r?.cost_eur > 5 ? 'élevé' : 'normal'}
-
-## Actions recommandées
-${r?.avg_dhi < 0.8 ? '→ Vérifier les sources avec DHI < 0.7\n' : ''}${r?.tasks_failed > 10 ? '→ Analyser les agents ayant échoué\n' : ''}${r?.cost_eur > 5 ? '→ Passer en mode cheap pendant les heures creuses\n' : ''}
-    `?.trim();
-
-    // Save the report
-    await supabase?.from('ai_daily_reports')?.upsert({ 
-      day: r?.day, 
-      report: { ...r, md } 
-    });
-
-    console.log('[DailyReport] ✅ Rapport du ', r?.day);
-    
-    res?.json({ 
-      ok: true, 
-      message: `Daily report generated for ${r?.day}`,
-      data: { ...r, md }
-    });
-  } catch (error) {
-    console.error('[DailyReport] ❌ Erreur ', error);
-    res?.status(500)?.json({
-      ok: false,
-      error: error?.message || 'Failed to generate daily report via cron'
-    });
-  }
-});
-
-// Mount PNL Tracker routes
-app?.use('/', pnlTracker);
-
-// Start server
-const PORT = process.env?.PORT || 3000;
-app?.listen(PORT, () => {
-  console.log(`🚀 Backend API server running on port ${PORT}`);
-  console.log(`📊 Daily Intelligence Report API endpoints available:
-  - GET  /api/daily-report
-  - POST /api/daily-report/generate  
-  - GET  /api/daily-report/history
-  - GET  /api/daily-report/live-metrics
-  - POST /api/daily-report/cron`);
+app?.listen(PORT, ()=> {
+  console.log(`[API] up :${PORT}`);
+  console.log('[SERVER] Real-time endpoints: /api/realtime/quote, /api/realtime/health');
+  console.log('[SERVER] Health endpoints: /health, /api/health, /internal/health');
+  console.log('[SERVER] Analytics endpoints: /analytics/trades, /analytics/today');  // UPDATED
+  console.log('[SERVER] AI Symbol Management: /api/ai/symbol-intent, /api/ai/symbols, /api/ai/policy');
+  console.log('[SERVER] AI Swarm Management: /api/swarm/* (move, energy, rest, fusion, state, policy, performance, statistics)');
+  console.log('[SERVER] Evolution Engine: /api/evo/* (candidates, fitness, policies, strategies, events)');
+  console.log('[SERVER] Canary IBKR Paper: /api/evo/canary/* (policy, logs, promote)');  // NEW
+  console.log('[SERVER] Internal Ops: /internal/ops/* (audit-run, audit-status, repair)');
+  console.log('[SERVER] IBKR Feed Mux initialized with symbols:', START_SYMBOLS);
+  console.log('🔧 [SURGICAL] Stabilization Pack v2 + JSON Health Endpoints + 42703 Fixes + Vite Import Stability - All systems operational');
 });

@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, TrendingUp, BookOpen, FileText, ChevronDown } from "lucide-react";
 import { BarChart3, Settings, Activity, Bot, Shield, Monitor, Users, Zap, Target, Brain, GitBranch, Globe, Database, AlertTriangle, Lock, Search, PieChart, Server, Code, Layers, FileCheck, Compass, Cpu, Terminal, Wifi, LineChart, DollarSign, Calendar, BookOpenCheck, Archive, RefreshCw, ShieldAlert, CheckCircle2, Home } from 'lucide-react';
 
-const Header = ({ activeItem, setActiveItem }) => {
+const Header = ({ activeItem, setActiveItem, stable = false }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openDropdowns, setOpenDropdowns] = useState({});
   const [apiLatency, setApiLatency] = useState(null);
   const location = useLocation();
   const dropdownRefs = useRef({});
 
-  // Menu complet avec toutes les 42 pages organisées
-  const MAIN_NAVIGATION = [
+  // Stable navigation configuration
+  const MAIN_NAVIGATION = useMemo(() => [
     {
       name: 'Accueil',
       href: '/',
@@ -142,16 +142,16 @@ const Header = ({ activeItem, setActiveItem }) => {
         { name: 'Redirections Pages Legacy', href: '/legacy-pages-redirect', icon: RefreshCw, category: 'Maintenance' }
       ]
     }
-  ];
+  ], []);
 
-  const isActiveRoute = (path) => {
+  const isActiveRoute = useCallback((path) => {
     if (path === '/') {
       return location?.pathname === '/';
     }
     return location?.pathname?.startsWith(path);
-  };
+  }, [location?.pathname]);
 
-  const toggleDropdown = (dropdownId) => {
+  const toggleDropdown = useCallback((dropdownId) => {
     setOpenDropdowns(prev => {
       const newState = {};
       // Fermer tous les autres dropdowns
@@ -164,27 +164,28 @@ const Header = ({ activeItem, setActiveItem }) => {
       newState[dropdownId] = !prev?.[dropdownId];
       return newState;
     });
-  };
+  }, []);
 
-  const closeAllDropdowns = () => {
+  const closeAllDropdowns = useCallback(() => {
     setOpenDropdowns({});
-  };
+  }, []);
 
-  const getLatencyColor = (latency) => {
+  // Stable latency functions - no animations in stable mode
+  const getLatencyColor = useCallback((latency) => {
     if (!latency) return 'text-gray-400';
     if (latency < 100) return 'text-green-400';
     if (latency < 500) return 'text-yellow-400';
     return 'text-red-400';
-  };
+  }, []);
 
-  const getLatencyStatus = (latency) => {
+  const getLatencyStatus = useCallback((latency) => {
     if (!latency) return 'Unknown';
     if (latency < 100) return 'Excellent';
     if (latency < 500) return 'Good';
     return 'Poor';
-  };
+  }, []);
 
-  const renderDropdownItems = (items) => {
+  const renderDropdownItems = useCallback((items) => {
     const categories = {};
     items?.forEach(item => {
       if (!categories?.[item?.category]) {
@@ -208,7 +209,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                 closeAllDropdowns();
                 setIsMenuOpen(false);
               }}
-              className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group"
+              className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-150 group"
             >
               <IconComponent className="w-4 h-4 mr-3 text-gray-400 group-hover:text-blue-500" />
               <div className="flex-1">
@@ -219,12 +220,11 @@ const Header = ({ activeItem, setActiveItem }) => {
         })}
       </div>
     ));
-  };
+  }, [closeAllDropdowns]);
 
-  // Fermer les dropdowns quand on clique ailleurs
+  // Stable click outside handler
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Ne fermer que si le clic n'est pas sur un dropdown
       let isInsideDropdown = false;
       Object.values(dropdownRefs?.current)?.forEach(ref => {
         if (ref && ref?.contains(event?.target)) {
@@ -239,41 +239,46 @@ const Header = ({ activeItem, setActiveItem }) => {
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [closeAllDropdowns]);
 
-  // Fermer les dropdowns lors du changement de route
+  // Stable route change handler
   useEffect(() => {
     closeAllDropdowns();
-  }, [location?.pathname]);
+  }, [location?.pathname, closeAllDropdowns]);
 
   return (
     <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-[100] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo and Title */}
+          {/* Logo and Title - Stable */}
           <div className="flex items-center space-x-4 flex-shrink-0">
             <Link to="/" className="flex items-center space-x-3" onClick={closeAllDropdowns}>
               <div className="p-2 bg-blue-600 rounded-lg shadow-lg">
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">Rocket Trading AI</h1>
+                <h1 className="text-xl font-bold text-white">
+                  Rocket Trading AI {stable && <span className="text-xs text-green-400">(Stable)</span>}
+                </h1>
                 <p className="text-xs text-gray-400">MVP Plateforme Professionnelle</p>
               </div>
             </Link>
           </div>
 
-          {/* API Latency Indicator */}
+          {/* API Latency Indicator - Stable mode */}
           {apiLatency !== null && (
             <div className="hidden lg:flex items-center space-x-2 px-3 py-1 bg-gray-800/50 rounded-lg">
-              <div className={`w-2 h-2 rounded-full ${getLatencyColor(apiLatency)} animate-pulse`}></div>
+              <div className={`w-2 h-2 rounded-full ${getLatencyColor(apiLatency)} ${
+                stable ? '' : 'animate-pulse'
+              }`}></div>
               <span className="text-xs text-gray-300">
                 API: {apiLatency}ms ({getLatencyStatus(apiLatency)})
+                {stable && <span className="text-green-400 ml-1">[Stable]</span>}
               </span>
             </div>
           )}
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation - Stable */}
           <nav className="hidden lg:flex items-center space-x-1">
             {MAIN_NAVIGATION?.slice(0, 5)?.map((item) => {
               const IconComponent = item?.icon;
@@ -290,7 +295,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                         e?.stopPropagation();
                         toggleDropdown(item?.dropdownId);
                       }}
-                      className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
                         openDropdowns?.[item?.dropdownId] 
                           ? 'bg-blue-600 text-white shadow-lg' 
                           : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -298,12 +303,14 @@ const Header = ({ activeItem, setActiveItem }) => {
                     >
                       <IconComponent className="w-4 h-4 mr-2" />
                       {item?.name}
-                      <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform duration-200 ${
+                      <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform duration-150 ${
                         openDropdowns?.[item?.dropdownId] ? 'rotate-180' : ''
                       }`} />
                     </button>
                     {openDropdowns?.[item?.dropdownId] && (
-                      <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[200] max-h-[80vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
+                      <div className={`absolute top-full left-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[200] max-h-[80vh] overflow-y-auto ${
+                        stable ? 'animate-none opacity-100' : 'animate-in fade-in-0 zoom-in-95 duration-200'
+                      }`}>
                         {renderDropdownItems(item?.children)}
                       </div>
                     )}
@@ -316,7 +323,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                   key={item?.name}
                   to={item?.href}
                   onClick={closeAllDropdowns}
-                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
                     isActiveRoute(item?.href)
                       ? 'bg-blue-600 text-white shadow-lg' 
                       : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -328,7 +335,7 @@ const Header = ({ activeItem, setActiveItem }) => {
               );
             })}
             
-            {/* Menu "Plus" pour les items restants */}
+            {/* Menu "Plus" - Stable */}
             <div 
               className="relative"
               ref={el => dropdownRefs.current['more'] = el}
@@ -338,19 +345,21 @@ const Header = ({ activeItem, setActiveItem }) => {
                   e?.stopPropagation();
                   toggleDropdown('more');
                 }}
-                className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
                   openDropdowns?.['more'] 
                     ? 'bg-blue-600 text-white shadow-lg' :'text-gray-300 hover:bg-gray-800 hover:text-white'
                 }`}
               >
                 <Menu className="w-4 h-4 mr-2" />
                 Plus
-                <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform duration-200 ${
+                <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform duration-150 ${
                   openDropdowns?.['more'] ? 'rotate-180' : ''
                 }`} />
               </button>
               {openDropdowns?.['more'] && (
-                <div className="absolute top-full right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[200] max-h-[80vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
+                <div className={`absolute top-full right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[200] max-h-[80vh] overflow-y-auto ${
+                  stable ? 'animate-none opacity-100' : 'animate-in fade-in-0 zoom-in-95 duration-200'
+                }`}>
                   {MAIN_NAVIGATION?.slice(5)?.map((moreItem) => (
                     <div key={moreItem?.name} className="py-2 border-b border-gray-100 last:border-b-0">
                       <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
@@ -369,7 +378,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                               closeAllDropdowns();
                               setIsMenuOpen(false);
                             }}
-                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group"
+                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors duration-150 group"
                           >
                             <ChildIcon className="w-4 h-4 mr-3 text-gray-400 group-hover:text-blue-500" />
                             <div className="flex-1">
@@ -386,19 +395,19 @@ const Header = ({ activeItem, setActiveItem }) => {
             </div>
           </nav>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button - Stable */}
           <button
             onClick={() => {
               setIsMenuOpen(!isMenuOpen);
               closeAllDropdowns();
             }}
-            className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+            className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-150"
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
-      {/* Mobile Navigation */}
+      {/* Mobile Navigation - Stable */}
       {isMenuOpen && (
         <div className="lg:hidden bg-gray-800 border-t border-gray-700 shadow-xl">
           <div className="px-4 py-2 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -410,7 +419,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                   <div key={item?.name} className="space-y-1">
                     <button
                       onClick={() => toggleDropdown(`mobile-${item?.dropdownId}`)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium border-b border-gray-600 transition-all duration-200 ${
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium border-b border-gray-600 transition-colors duration-150 ${
                         openDropdowns?.[`mobile-${item?.dropdownId}`] 
                           ? 'bg-blue-600 text-white' :'text-gray-300 hover:bg-gray-700 hover:text-white'
                       }`}
@@ -419,7 +428,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                         <IconComponent className="w-4 h-4 mr-3" />
                         {item?.name}
                       </div>
-                      <ChevronDown className={`w-4 h-4 transform transition-transform duration-200 ${
+                      <ChevronDown className={`w-4 h-4 transform transition-transform duration-150 ${
                         openDropdowns?.[`mobile-${item?.dropdownId}`] ? 'rotate-180' : ''
                       }`} />
                     </button>
@@ -435,7 +444,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                                 setIsMenuOpen(false);
                                 closeAllDropdowns();
                               }}
-                              className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
                                 isActiveRoute(child?.href)
                                   ? 'bg-blue-600 text-white shadow-lg' 
                                   : 'text-gray-300 hover:bg-gray-600 hover:text-white'
@@ -463,7 +472,7 @@ const Header = ({ activeItem, setActiveItem }) => {
                     setIsMenuOpen(false);
                     closeAllDropdowns();
                   }}
-                  className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
                     isActiveRoute(item?.href)
                       ? 'bg-blue-600 text-white shadow-lg' 
                       : 'text-gray-300 hover:bg-gray-700 hover:text-white'
@@ -475,11 +484,16 @@ const Header = ({ activeItem, setActiveItem }) => {
               );
             })}
             
-            {/* Mobile API Latency */}
+            {/* Mobile API Latency - Stable */}
             {apiLatency !== null && (
               <div className="flex items-center space-x-2 px-4 py-2 text-xs text-gray-400 border-t border-gray-600 mt-4">
-                <div className={`w-2 h-2 rounded-full ${getLatencyColor(apiLatency)} animate-pulse`}></div>
-                <span>API Latency: {apiLatency}ms ({getLatencyStatus(apiLatency)})</span>
+                <div className={`w-2 h-2 rounded-full ${getLatencyColor(apiLatency)} ${
+                  stable ? '' : 'animate-pulse'
+                }`}></div>
+                <span>
+                  API Latency: {apiLatency}ms ({getLatencyStatus(apiLatency)})
+                  {stable && <span className="text-green-400 ml-1">[Stable]</span>}
+                </span>
               </div>
             )}
           </div>

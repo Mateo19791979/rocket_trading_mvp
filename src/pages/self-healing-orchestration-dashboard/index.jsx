@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Shield, Zap, AlertTriangle, CheckCircle, XCircle, RefreshCw, Clock } from 'lucide-react';
+import { Activity, Shield, Zap, AlertTriangle, CheckCircle, XCircle, RefreshCw, Clock, EyeOff } from 'lucide-react';
 import selfHealingService from '../../services/selfHealingService';
+import aiSwarmService from '../../services/aiSwarmService';
 
 // Import components
 import SelfHealingControllerPanel from './components/SelfHealingControllerPanel';
@@ -19,6 +20,24 @@ const SelfHealingOrchestrationDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  
+  // UI Flags state
+  const [uiFlags, setUIFlags] = useState({ hide_stats_card: true });
+  const [flagsLoading, setFlagsLoading] = useState(true);
+
+  // Load UI flags function
+  const loadUIFlags = async () => {
+    try {
+      setFlagsLoading(true);
+      const flags = await aiSwarmService?.getUIFlags();
+      setUIFlags(flags || { hide_stats_card: true });
+    } catch (err) {
+      console.warn('Error loading UI flags:', err);
+      setUIFlags({ hide_stats_card: true });
+    } finally {
+      setFlagsLoading(false);
+    }
+  };
 
   // Load data function
   const loadDashboardData = async () => {
@@ -59,24 +78,25 @@ const SelfHealingOrchestrationDashboard = () => {
 
   // Real-time updates
   useEffect(() => {
+    loadUIFlags();
+    
     loadDashboardData();
 
-    // Set up real-time subscriptions
     const healthUnsubscribe = selfHealingService?.subscribeToSystemHealth((payload) => {
-      loadDashboardData(); // Refresh all data when health changes
+      loadDashboardData();
     });
 
     const eventsUnsubscribe = selfHealingService?.subscribeToRiskEvents((payload) => {
-      loadDashboardData(); // Refresh all data when events change
+      loadDashboardData();
     });
 
     const stateUnsubscribe = selfHealingService?.subscribeToOrchestratorState((payload) => {
-      loadDashboardData(); // Refresh all data when state changes
+      loadDashboardData();
     });
 
-    // Auto-refresh every 30 seconds
     const refreshInterval = setInterval(() => {
       loadDashboardData();
+      loadUIFlags();
     }, 30000);
 
     return () => {
@@ -87,7 +107,6 @@ const SelfHealingOrchestrationDashboard = () => {
     };
   }, []);
 
-  // Calculate system metrics
   const systemMetrics = {
     totalAgents: systemHealth?.length || 0,
     healthyAgents: systemHealth?.filter(h => h?.health_status === 'healthy')?.length || 0,
@@ -99,6 +118,8 @@ const SelfHealingOrchestrationDashboard = () => {
       return eventTime > oneDayAgo;
     })?.length || 0
   };
+
+  const hideStats = uiFlags?.hide_stats_card ?? true;
 
   if (loading && systemHealth?.length === 0) {
     return (
@@ -128,6 +149,12 @@ const SelfHealingOrchestrationDashboard = () => {
               }`}>
                 Mode: {systemMode?.mode}
               </div>
+              {hideStats && (
+                <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-xs">
+                  <EyeOff className="w-3 h-3" />
+                  <span>Stats Hidden</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               {lastUpdate && (
@@ -137,7 +164,10 @@ const SelfHealingOrchestrationDashboard = () => {
                 </div>
               )}
               <button
-                onClick={loadDashboardData}
+                onClick={() => {
+                  loadDashboardData();
+                  loadUIFlags();
+                }}
                 disabled={loading}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
@@ -147,54 +177,67 @@ const SelfHealingOrchestrationDashboard = () => {
             </div>
           </div>
 
-          {/* System Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Total Agents</p>
-                  <p className="text-xl font-semibold">{systemMetrics?.totalAgents}</p>
+          {!hideStats ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Total Agents</p>
+                    <p className="text-xl font-semibold">{systemMetrics?.totalAgents}</p>
+                  </div>
+                  <Activity className="w-5 h-5 text-blue-500" />
                 </div>
-                <Activity className="w-5 h-5 text-blue-500" />
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Healthy</p>
+                    <p className="text-xl font-semibold text-green-400">{systemMetrics?.healthyAgents}</p>
+                  </div>
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                </div>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Critical</p>
+                    <p className="text-xl font-semibold text-red-400">{systemMetrics?.criticalAgents}</p>
+                  </div>
+                  <XCircle className="w-5 h-5 text-red-500" />
+                </div>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Active Providers</p>
+                    <p className="text-xl font-semibold text-blue-400">{systemMetrics?.activeProviders}</p>
+                  </div>
+                  <Zap className="w-5 h-5 text-blue-500" />
+                </div>
+              </div>
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400">Recent Events</p>
+                    <p className="text-xl font-semibold text-yellow-400">{systemMetrics?.recentEvents}</p>
+                  </div>
+                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                </div>
               </div>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Healthy</p>
-                  <p className="text-xl font-semibold text-green-400">{systemMetrics?.healthyAgents}</p>
-                </div>
-                <CheckCircle className="w-5 h-5 text-green-500" />
+          ) : (
+            <div className="mt-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-yellow-400">
+                <EyeOff className="w-5 h-5" />
+                <span className="text-sm">
+                  Statistiques masquées pour éviter l'erreur PGRST116. 
+                  <span className="text-gray-400 ml-1">
+                    (Données disponibles dans IBKR)
+                  </span>
+                </span>
               </div>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Critical</p>
-                  <p className="text-xl font-semibold text-red-400">{systemMetrics?.criticalAgents}</p>
-                </div>
-                <XCircle className="w-5 h-5 text-red-500" />
-              </div>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Active Providers</p>
-                  <p className="text-xl font-semibold text-blue-400">{systemMetrics?.activeProviders}</p>
-                </div>
-                <Zap className="w-5 h-5 text-blue-500" />
-              </div>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Recent Events</p>
-                  <p className="text-xl font-semibold text-yellow-400">{systemMetrics?.recentEvents}</p>
-                </div>
-                <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              </div>
-            </div>
-          </div>
+          )}
 
           {error && (
             <div className="mt-4 bg-red-500/20 border border-red-500/30 rounded-lg p-4">

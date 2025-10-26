@@ -62,6 +62,7 @@ const RiskControllerDashboard = () => {
     };
   }, [riskController?.id]);
 
+  // Enhanced data loading for VaR/CVaR functionality
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -71,22 +72,60 @@ const RiskControllerDashboard = () => {
       if (controllerError) throw controllerError;
       setRiskController(controller);
 
-      // Load parallel data
-      const [eventsResult, portfolioResult, metricsResult] = await Promise.all([
-        riskControllerService?.getRiskEvents(controller?.id),
-        riskControllerService?.getPortfolioRisk(),
-        riskControllerService?.getRiskMetrics()
-      ]);
+      // Load comprehensive risk dashboard data with VaR/CVaR
+      const { data: dashboardData, error: dashboardError } = await riskControllerService?.getRiskDashboardData();
+      if (dashboardError) throw dashboardError;
 
-      setRiskEvents(eventsResult?.data || []);
-      setPortfolioRisk(portfolioResult?.data);
-      setRiskMetrics(metricsResult?.data);
+      // Set all data from comprehensive dashboard fetch
+      setRiskEvents(dashboardData?.recentEvents || []);
+      setPortfolioRisk(dashboardData?.portfolio);
+      setRiskMetrics(dashboardData?.metrics);
+
+      // Show notification if VaR alert is active
+      if (dashboardData?.portfolio?.var99Alert || dashboardData?.metrics?.alert_triggered) {
+        setNotification({
+          type: 'error',
+          message: '🚨 Alerte VaR: Risque critique détecté! Surveillez vos positions.'
+        });
+      }
 
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       setNotification({
         type: 'error',
-        message: 'Failed to load risk dashboard data'
+        message: 'Erreur lors du chargement des données de risque'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Enhanced force risk calculation handler
+  const handleForceRiskCalculation = async () => {
+    try {
+      setLoading(true);
+      setNotification({
+        type: 'info',
+        message: 'Recalcul des métriques VaR/CVaR en cours...'
+      });
+
+      const { data, error } = await riskControllerService?.forceRiskCalculation();
+      if (error) throw error;
+
+      if (data) {
+        setNotification({
+          type: 'success',
+          message: `✅ VaR/CVaR recalculées: VaR99 = ${data?.var_99?.toFixed(2)} ${data?.alert_triggered ? '(Alerte activée!)' : ''}`
+        });
+        
+        // Reload dashboard data to show fresh calculations
+        await loadDashboardData();
+      }
+    } catch (error) {
+      console.error('Failed to force risk calculation:', error);
+      setNotification({
+        type: 'error',
+        message: 'Échec du recalcul des métriques de risque'
       });
     } finally {
       setLoading(false);
@@ -160,7 +199,7 @@ const RiskControllerDashboard = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <Header activeItem="risk" setActiveItem={() => {}} />
         <main className="container mx-auto px-4 py-8">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -178,7 +217,7 @@ const RiskControllerDashboard = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <Header activeItem="risk" setActiveItem={() => {}} />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-16">
             <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -194,7 +233,7 @@ const RiskControllerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header activeItem="risk" setActiveItem={() => {}} />
       <main className="container mx-auto px-4 py-8">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
@@ -243,7 +282,7 @@ const RiskControllerDashboard = () => {
           </div>
         )}
 
-        {/* Dashboard Grid */}
+        {/* Enhanced Dashboard Grid with VaR/CVaR focus */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
           {/* Emergency Killswitch - Full Width on Mobile, Left Column on Desktop */}
           <div className="xl:col-span-8">
@@ -263,12 +302,13 @@ const RiskControllerDashboard = () => {
             />
           </div>
 
-          {/* Risk Metrics - Full Width */}
+          {/* Enhanced Risk Metrics Panel - Full Width with VaR/CVaR */}
           <div className="xl:col-span-12">
             <RiskMetricsPanel
               portfolioRisk={portfolioRisk}
               riskMetrics={riskMetrics}
               isLoading={loading}
+              onForceRecalculation={handleForceRiskCalculation}
             />
           </div>
 
@@ -282,21 +322,36 @@ const RiskControllerDashboard = () => {
           </div>
         </div>
 
-        {/* System Status Footer */}
+        {/* Enhanced System Status Footer with VaR/CVaR Status */}
         <div className="mt-8 bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <div>
-              Last health check: {riskController?.last_health_check 
-                ? new Date(riskController.last_health_check)?.toLocaleString()
-                : 'Never'
-              }
+            <div className="flex items-center space-x-6">
+              <span>
+                Dernière vérification système: {riskController?.last_health_check 
+                  ? new Date(riskController.last_health_check)?.toLocaleString('fr-FR')
+                  : 'Jamais'
+                }
+              </span>
+              <span>
+                Calculs VaR/CVaR: {riskMetrics ? 
+                  `✅ Actifs (${riskMetrics?.calculated_at ? new Date(riskMetrics.calculated_at)?.toLocaleTimeString('fr-FR') : 'Maintenant'})` 
+                  : '⚠️ En attente'
+                }
+              </span>
             </div>
             <div className="flex items-center space-x-4">
-              <span>Market Hours Enforcement: {
-                riskController?.configuration?.market_hours_only ? 'Enabled' : 'Disabled'
+              <button
+                onClick={handleForceRiskCalculation}
+                disabled={loading}
+                className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium hover:bg-blue-200 disabled:opacity-50"
+              >
+                {loading ? 'Calcul...' : 'Recalculer VaR/CVaR'}
+              </button>
+              <span>Contrôle heures de marché: {
+                riskController?.configuration?.market_hours_only ? 'Activé' : 'Désactivé'
               }</span>
-              <span>Order Validation: {
-                riskController?.configuration?.validate_orders ? 'Enabled' : 'Disabled'
+              <span>Validation des ordres: {
+                riskController?.configuration?.validate_orders ? 'Activée' : 'Désactivée'
               }</span>
             </div>
           </div>

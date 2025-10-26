@@ -7,6 +7,7 @@ import DataminingFoundationPanel from './components/DataminingFoundationPanel';
 import AutonomousAIPanel from './components/AutonomousAIPanel';
 import GlobalOperationPanel from './components/GlobalOperationPanel';
 import ActionPlanPanel from './components/ActionPlanPanel';
+import TradingMetricsMockPanel from './components/TradingMetricsMockPanel';
 
 const AutonomousAIHedgeFundLevel = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -74,6 +75,11 @@ const AutonomousAIHedgeFundLevel = () => {
             <Clock className="h-4 w-4" />
             <span>{currentTime?.toLocaleDateString('fr-FR')} - {currentTime?.toLocaleTimeString('fr-FR')}</span>
           </div>
+        </motion.div>
+
+        {/* Trading Metrics Mock Panel - New Addition */}
+        <motion.div className="mb-8" variants={itemVariants}>
+          <TradingMetricsMockPanel />
         </motion.div>
 
         {/* Main Content Grid */}
