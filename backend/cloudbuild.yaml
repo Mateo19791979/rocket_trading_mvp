@@ -1,0 +1,23 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      [ "build", "-t", "europe-west1-docker.pkg.dev/$PROJECT_ID/mvp-repo/backend:$_TAG",
+        "-f", "backend/Dockerfile", "backend" ]
+
+  - name: gcr.io/cloud-builders/docker
+    args: [ "push", "europe-west1-docker.pkg.dev/$PROJECT_ID/mvp-repo/backend:$_TAG" ]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      [ "run","deploy","backend",
+        "--image=europe-west1-docker.pkg.dev/$PROJECT_ID/mvp-repo/backend:$_TAG",
+        "--region=europe-west1","--platform=managed","--allow-unauthenticated",
+        "--service-account=cloud-run-deployer@${PROJECT_ID}.iam.gserviceaccount.com",
+        "--port=8080","--cpu=1","--memory=512Mi","--max-instances=5",
+        "--set-env-vars=NODE_ENV=production",
+        "--set-secrets=SUPABASE_URL=SUPABASE_URL:latest",
+        "--set-secrets=SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest",
+        "--set-secrets=DATABASE_URL=DATABASE_URL:latest" ]
+substitutions: { _TAG: "$_COMMIT_SHA" }
+images: [ "europe-west1-docker.pkg.dev/$PROJECT_ID/mvp-repo/backend:$_TAG" ]
