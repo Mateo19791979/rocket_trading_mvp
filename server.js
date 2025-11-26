@@ -1,50 +1,65 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import IB from 'ib';
+import IB from 'ibkr';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// IBKR connexion (live = 7497, paper = 7496)
-const ib = new IB({
-  host: '127.0.0.1',
-  port: process.env.IBKR_PAPER === 'true' ? 7496 : 7497,
-  clientId: 1
-});
+let ib = null;
+try {
+  const IB_HOST = process.env.IBKR_HOST || '127.0.0.1';
+  const IB_PORT = Number(process.env.IBKR_PORT) || 7497;
+  const IB_CLIENT_ID = Number(process.env.IBKR_CLIENT_ID) || 1;
 
-ib.on('connected', () => console.log('IBKR CONNECTÉ'));
-ib.on('disconnected', () => console.log('IBKR DÉCONNECTÉ'));
-ib.on('error', err => console.error('IBKR ERREUR:', err));
-ib.connect();
+  ib = new IB({ host: IB_HOST, port: IB_PORT, clientId: IB_CLIENT_ID });
+  ib.on('connected', () => console.log(`IBKR CONNECTÉ → ${IB_HOST}:${IB_PORT}`));
+  ib.on('disconnected', () => console.log('IBKR DÉCONNECTÉ'));
+  ib.on('error', err => console.error('IBKR ERREUR:', err.message));
+  ib.connect();
+} catch (err) {
+  console.error('IBKR INIT ERREUR:', err.message);
+}
 
 // Health check
 app.get('/health', (req, res) => {
+  const distExists = fs.existsSync(join(__dirname, 'dist'));
   res.json({
     status: "healthy",
-    ibkr: ib.connected ? "connected" : "disconnected",
-    version: "3.0-IBKR",
+    ibkr: ib && ib.connected ? "connected" : "disconnected",
+    dist: distExists ? "ok" : "missing",
+    version: "3.0-FIXED",
     time: new Date().toISOString()
   });
 });
 
-// Exemple prix AAPL
+// Prix en temps réel
 app.get('/price/:symbol', (req, res) => {
+  if (!ib || !ib.connected) return res.status(503).json({ error: "IBKR not connected" });
   const { symbol } = req.params;
-  ib.reqMktData(1, { symbol, secType: 'STK', exchange: 'SMART', currency: 'USD' }, '', false, false);
+  const contract = { symbol, secType: 'STK', exchange: 'SMART', currency: 'USD' };
+  ib.reqMktData(4001, contract, '', false, false);
+  const timeout = setTimeout(() => res.status(504).json({ error: "timeout" }), 8000);
   ib.once('tickPrice', (id, type, price) => {
-    if (id === 1) res.json({ symbol, price });
+    if (id === 4001 && type === 4) {
+      clearTimeout(timeout);
+      res.json({ symbol, price });
+      ib.cancelMktData(4001);
+    }
   });
 });
 
-// Frontend React/Vite
+// Frontend static
 app.use(express.static(join(__dirname, 'dist')));
+
+// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Rocket Trading MVP + IBKR → http://localhost:${PORT}`);
+  console.log(`Rocket Trading MVP → http://localhost:${PORT}`);
 });
