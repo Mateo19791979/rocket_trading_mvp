@@ -1,0 +1,40 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: 'projects/915300066765/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        service_account: 'github-actions@crucial-botany-475517-f7.iam.gserviceaccount.com'
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy rocket-trading-mvp \
+          --source . \
+          --region europe-west6 \
+          --allow-unauthenticated \
+          --port 8080 \
+          --memory 2Gi \
+          --cpu 2 \
+          --set-env-vars=DATABASE_URL="postgresql://postgres.bnpucfgzgvoyefzrszkj:[TON_MDP]@db.bnpucfgzgvoyefzrszkj.supabase.co:6543/postgres?pgbouncer=true",SUPABASE_URL="https://bnpucfgzgvoyefzrszkj.supabase.co",SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxxxxxxxxxxxxxxxx" \
+          --project crucial-botany-475517-f7 \
+          --quiet
+
+    - name: Show URL
+      run: |
+        URL=$(gcloud run services describe rocket-trading-mvp --region europe-west6 --format='value(status.address.url)' --project crucial-botany-475517-f7)
+        echo "TON MVP COMPLET EST ICI → $URL"
