@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import IB from 'ibkr';
+import IB from '@stoqey/ib';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
